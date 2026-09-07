@@ -34,6 +34,17 @@ func main() {
 	tokenService := services.NewTokenService(cfg.JWTAccessSecret)
 	authService := services.NewAuthService(userRepo, refreshTokenRepo, tokenService)
 
+	// Репозитории учебной структуры (Phase 3 — Database Core). HTTP-хендлеры
+	// и полноценный CRUD для них появятся в Phase 5 (Admin Panel); здесь они
+	// подключаются, чтобы подтвердить корректность wiring уже на этом этапе.
+	_ = repositories.NewSpecialtyRepository(pool)
+	_ = repositories.NewCourseRepository(pool)
+	_ = repositories.NewGroupRepository(pool)
+	_ = repositories.NewSubjectRepository(pool)
+	_ = repositories.NewRoomRepository(pool)
+	_ = repositories.NewTeacherRepository(pool)
+	_ = repositories.NewStudentRepository(pool)
+
 	authHandler := handlers.NewAuthHandler(authService)
 	usersHandler := handlers.NewUsersHandler(userRepo)
 
