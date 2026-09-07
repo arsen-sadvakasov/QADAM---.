@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/*
+ * QADAM Design Tokens
+ * Источник: QADAM_Project_Specification.md, раздел 7 (UX/UI Requirements)
+ *
+ * Dark theme — базовая (основная) тема продукта.
+ * Light theme — переопределяется через [data-theme="light"] на <html>.
+ */
+@theme {
+  --color-background: #0d1117;
+  --color-surface: #161b22;
+  --color-primary: #00f5d4;
+  --color-secondary: #7b2cbf;
+  --color-warning: #ff2e93;
+  --color-text: #f0f6fc;
+  --color-muted: #8b949e;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  /*
+   * Light-палитра — предварительная, требует доработки на этапе UI Design System
+   * (см. раздел 7 спецификации: "просто инвертировать неоновые цвета на белом
+   * фоне не даст доступного контраста"). Значения ниже — временный безопасный
+   * вариант с сохранением семантики токенов до финального аудита контраста.
+   */
+  --color-background: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-primary: #0a8f7d;
+  --color-secondary: #5b21a6;
+  --color-warning: #d6006e;
+  --color-text: #0d1117;
+  --color-muted: #57606a;
+}
+
+html,
+body {
+  background-color: var(--color-background);
+  color: var(--color-text);
+}
+
+* {
+  box-sizing: border-box;
+}

@@ -1,0 +1,21 @@
+# Environment
+.env
+.env.local
+
+# Backend (Go)
+backend/tmp/
+backend/*.exe
+backend/qadam-server
+
+# Frontend (Node)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
