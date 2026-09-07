@@ -130,7 +130,7 @@ func baseTemplate(t *testing.T) *models.ScheduleTemplate {
 func TestScheduleService_GetGroupSchedule_MatchesDayOfWeek(t *testing.T) {
 	repo := newFakeScheduleTemplateRepository()
 	repo.add(baseTemplate(t))
-	svc := NewScheduleService(repo)
+	svc := NewScheduleService(repo, nil)
 
 	// 2024-06-03 is a Monday, 2024-06-04 is a Tuesday.
 	from := mustParseDate(t, "2024-06-03")
@@ -157,7 +157,7 @@ func TestScheduleService_GetGroupSchedule_RespectsValidToBoundary(t *testing.T) 
 	validTo := mustParseDate(t, "2024-06-03")
 	tpl.ValidTo = &validTo
 	repo.add(tpl)
-	svc := NewScheduleService(repo)
+	svc := NewScheduleService(repo, nil)
 
 	// Query a range starting the day after valid_to.
 	from := mustParseDate(t, "2024-06-04")
@@ -177,7 +177,7 @@ func TestScheduleService_GetGroupSchedule_RespectsWeekParity(t *testing.T) {
 	tpl := baseTemplate(t)
 	tpl.WeekParity = models.WeekParityOdd
 	repo.add(tpl)
-	svc := NewScheduleService(repo)
+	svc := NewScheduleService(repo, nil)
 
 	// ISO week of 2024-06-03 is week 23 (odd) -> should match.
 	// ISO week of 2024-06-10 is week 24 (even) -> should not match.
@@ -201,7 +201,7 @@ func TestScheduleService_GetGroupSchedule_SkipsCancelledTemplate(t *testing.T) {
 	tpl := baseTemplate(t)
 	tpl.Status = models.ScheduleTemplateStatusCancelled
 	repo.add(tpl)
-	svc := NewScheduleService(repo)
+	svc := NewScheduleService(repo, nil)
 
 	from := mustParseDate(t, "2024-06-03")
 	to := mustParseDate(t, "2024-06-09")
@@ -217,7 +217,7 @@ func TestScheduleService_GetGroupSchedule_SkipsCancelledTemplate(t *testing.T) {
 
 func TestScheduleService_GetGroupSchedule_InvalidRange(t *testing.T) {
 	repo := newFakeScheduleTemplateRepository()
-	svc := NewScheduleService(repo)
+	svc := NewScheduleService(repo, nil)
 
 	from := mustParseDate(t, "2024-06-10")
 	to := mustParseDate(t, "2024-06-03") // before from
@@ -231,7 +231,7 @@ func TestScheduleService_GetGroupSchedule_InvalidRange(t *testing.T) {
 func TestScheduleService_GetTeacherSchedule(t *testing.T) {
 	repo := newFakeScheduleTemplateRepository()
 	repo.add(baseTemplate(t))
-	svc := NewScheduleService(repo)
+	svc := NewScheduleService(repo, nil)
 
 	from := mustParseDate(t, "2024-06-03")
 	to := mustParseDate(t, "2024-06-09")
@@ -248,7 +248,7 @@ func TestScheduleService_GetTeacherSchedule(t *testing.T) {
 func TestScheduleService_GetLessonDetails_Success(t *testing.T) {
 	repo := newFakeScheduleTemplateRepository()
 	repo.add(baseTemplate(t))
-	svc := NewScheduleService(repo)
+	svc := NewScheduleService(repo, nil)
 
 	date := mustParseDate(t, "2024-06-03") // Monday, matches template
 
@@ -267,7 +267,7 @@ func TestScheduleService_GetLessonDetails_Success(t *testing.T) {
 func TestScheduleService_GetLessonDetails_WrongDayReturnsNotFound(t *testing.T) {
 	repo := newFakeScheduleTemplateRepository()
 	repo.add(baseTemplate(t)) // Monday template
-	svc := NewScheduleService(repo)
+	svc := NewScheduleService(repo, nil)
 
 	date := mustParseDate(t, "2024-06-04") // Tuesday, does not match
 
@@ -279,7 +279,7 @@ func TestScheduleService_GetLessonDetails_WrongDayReturnsNotFound(t *testing.T) 
 
 func TestScheduleService_GetLessonDetails_UnknownTemplate(t *testing.T) {
 	repo := newFakeScheduleTemplateRepository()
-	svc := NewScheduleService(repo)
+	svc := NewScheduleService(repo, nil)
 
 	_, err := svc.GetLessonDetails(context.Background(), "does-not-exist", mustParseDate(t, "2024-06-03"))
 	if err != repositories.ErrNotFound {

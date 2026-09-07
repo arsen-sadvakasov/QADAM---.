@@ -48,14 +48,20 @@ func main() {
 
 	// Phase 4 — Schedule: вычисление расписания на день/неделю/месяц из
 	// schedule_templates + карточка занятия (FR-2, FR-3 спецификации).
+	// Phase 6 — замены накладываются поверх шаблона при вычислении.
 	scheduleTemplateRepo := repositories.NewScheduleTemplateRepository(pool)
-	scheduleService := services.NewScheduleService(scheduleTemplateRepo)
+	scheduleChangeRepo := repositories.NewScheduleChangeRepository(pool)
+	scheduleService := services.NewScheduleService(scheduleTemplateRepo, scheduleChangeRepo)
 
 	// Phase 5 — Admin Panel (Core CRUD): пользователи, группы, кабинеты,
 	// предметы, преподаватели, кураторы, управление расписанием.
 	userAdminService := services.NewUserAdminService(userRepo, roleRepo)
 	teacherAdminService := services.NewTeacherAdminService(userAdminService, teacherRepo)
 	scheduleAdminService := services.NewScheduleAdminService(scheduleTemplateRepo)
+
+	// Phase 6 — Schedule Changes (Замены): точечные замены/отмены/переносы
+	// занятий на конкретную дату, накладываемые поверх шаблона (раздел 20).
+	scheduleChangeService := services.NewScheduleChangeService(scheduleChangeRepo, scheduleTemplateRepo)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	usersHandler := handlers.NewUsersHandler(userRepo, userAdminService)
@@ -65,6 +71,7 @@ func main() {
 	subjectsHandler := handlers.NewSubjectsHandler(subjectRepo)
 	teachersHandler := handlers.NewTeachersHandler(teacherAdminService)
 	curatorsHandler := handlers.NewCuratorsHandler(userAdminService)
+	scheduleChangesHandler := handlers.NewScheduleChangesHandler(scheduleChangeService)
 
 	loginRateLimiter := middleware.NewRateLimiter(10, time.Minute)
 	authMiddleware := middleware.Auth(tokenService)
@@ -126,6 +133,16 @@ func main() {
 	mux.Handle("GET /api/v1/curators", authMiddleware(adminOnly(http.HandlerFunc(curatorsHandler.List))))
 	mux.Handle("POST /api/v1/curators", authMiddleware(adminOnly(http.HandlerFunc(curatorsHandler.Create))))
 	mux.Handle("PATCH /api/v1/curators/{id}", authMiddleware(adminOnly(http.HandlerFunc(curatorsHandler.Update))))
+
+	// --- Schedule Changes (Phase 6) ---
+	// Замены расписания: создание, просмотр, обновление, удаление.
+	// Доступ к изменению — только Admin. Просмотр — Admin и затронутые пользователи
+	// (реализация фильтрации по ролям будет доработана в Phase 9 для студентов/кураторов).
+	mux.Handle("GET /api/v1/schedule-changes", authMiddleware(http.HandlerFunc(scheduleChangesHandler.List)))
+	mux.Handle("GET /api/v1/schedule-changes/{id}", authMiddleware(http.HandlerFunc(scheduleChangesHandler.Get)))
+	mux.Handle("POST /api/v1/schedule-changes", authMiddleware(adminOnly(http.HandlerFunc(scheduleChangesHandler.Create))))
+	mux.Handle("PATCH /api/v1/schedule-changes/{id}", authMiddleware(adminOnly(http.HandlerFunc(scheduleChangesHandler.Update))))
+	mux.Handle("DELETE /api/v1/schedule-changes/{id}", authMiddleware(adminOnly(http.HandlerFunc(scheduleChangesHandler.Delete))))
 
 	var h http.Handler = mux
 	h = middleware.Logging(h)

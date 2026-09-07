@@ -108,7 +108,7 @@ func newTestSchedulesHandler() *SchedulesHandler {
 			},
 		},
 	}
-	return NewSchedulesHandler(services.NewScheduleService(repo), services.NewScheduleAdminService(repo))
+	return NewSchedulesHandler(services.NewScheduleService(repo, nil), services.NewScheduleAdminService(repo))
 }
 
 func TestGetSchedule_MissingFilters(t *testing.T) {

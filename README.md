@@ -60,5 +60,5 @@ npm run dev
 | Phase 3 — Database Core | ✅ Готово |
 | Phase 4 — Schedule | ✅ Готово |
 | Phase 5 — Admin Panel (Core CRUD) | ✅ Готово |
-| Phase 6 — Schedule Changes (Замены) | ⏳ Следующий |
+| Phase 6 — Schedule Changes (Замены) | ✅ Готово |
 | Phase 7–16 | Ожидают |

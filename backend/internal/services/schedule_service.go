@@ -19,37 +19,72 @@ const MaxScheduleRangeDays = 62
 
 // ScheduleService вычисляет конкретные занятия ("occurrences") на диапазон
 // дат из шаблонов schedule_templates — раздел 20 спецификации: "вычислять
-// на лету по шаблону + применять поверх точечные schedule_changes" (замены
-// добавляются в Phase 6, здесь — только шаблонная часть).
+// на лету по шаблону + применять поверх точечные schedule_changes".
 type ScheduleService struct {
 	templates repositories.ScheduleTemplateRepository
+	changes   repositories.ScheduleChangeRepository
 }
 
-// NewScheduleService создаёт ScheduleService с внедрённым репозиторием.
-func NewScheduleService(templates repositories.ScheduleTemplateRepository) *ScheduleService {
-	return &ScheduleService{templates: templates}
+// NewScheduleService создаёт ScheduleService с внедрёнными репозиториями.
+// changes может быть nil (используется в тестах Phase 4, замены тогда не
+// применяются), но в продакшене всегда передаётся.
+func NewScheduleService(templates repositories.ScheduleTemplateRepository, changes repositories.ScheduleChangeRepository) *ScheduleService {
+	return &ScheduleService{templates: templates, changes: changes}
 }
 
-// GetGroupSchedule возвращает занятия группы на диапазон [from, to] включительно.
+// GetGroupSchedule возвращает занятия группы на диапазон [from, to]
+// включительно, с применёнными поверх шаблона заменами.
 func (s *ScheduleService) GetGroupSchedule(ctx context.Context, groupID string, from, to time.Time) ([]models.LessonOccurrence, error) {
 	templates, err := s.templates.ListByGroup(ctx, groupID)
 	if err != nil {
 		return nil, err
 	}
-	return expandTemplates(templates, from, to)
+	changes, err := s.loadChanges(ctx, from, to)
+	if err != nil {
+		return nil, err
+	}
+	return expandTemplates(templates, from, to, changes)
 }
 
-// GetTeacherSchedule возвращает занятия преподавателя на диапазон [from, to] включительно.
+// GetTeacherSchedule возвращает занятия преподавателя на диапазон [from, to]
+// включительно, с применёнными поверх шаблона заменами.
 func (s *ScheduleService) GetTeacherSchedule(ctx context.Context, teacherID string, from, to time.Time) ([]models.LessonOccurrence, error) {
 	templates, err := s.templates.ListByTeacher(ctx, teacherID)
 	if err != nil {
 		return nil, err
 	}
-	return expandTemplates(templates, from, to)
+	changes, err := s.loadChanges(ctx, from, to)
+	if err != nil {
+		return nil, err
+	}
+	return expandTemplates(templates, from, to, changes)
+}
+
+// loadChanges загружает замены в диапазоне дат (если репозиторий замен
+// подключён) и индексирует их по "шаблон+дата".
+func (s *ScheduleService) loadChanges(ctx context.Context, from, to time.Time) (map[changeKey]*models.ScheduleChange, error) {
+	if s.changes == nil {
+		return nil, nil
+	}
+	listed, err := s.changes.ListByDateRange(ctx, from, to)
+	if err != nil {
+		return nil, err
+	}
+	index := make(map[changeKey]*models.ScheduleChange, len(listed))
+	for _, c := range listed {
+		index[changeKey{templateID: c.ScheduleTemplateID, date: normalizeDate(c.ChangeDate)}] = &c.ScheduleChange
+	}
+	return index, nil
+}
+
+// changeKey — ключ индекса замен: шаблон + конкретная дата.
+type changeKey struct {
+	templateID string
+	date       time.Time
 }
 
 // GetLessonDetails возвращает детальную карточку занятия (FR-3 спецификации):
-// шаблон + конкретная дата, на которую запрошены детали.
+// шаблон + конкретная дата, на которую запрошены детали, с применённой заменой.
 func (s *ScheduleService) GetLessonDetails(ctx context.Context, templateID string, date time.Time) (*models.LessonOccurrence, error) {
 	template, err := s.templates.FindByID(ctx, templateID)
 	if err != nil {
@@ -58,14 +93,25 @@ func (s *ScheduleService) GetLessonDetails(ctx context.Context, templateID strin
 	if !templateAppliesOn(template, date) {
 		return nil, repositories.ErrNotFound
 	}
+
+	var change *models.ScheduleChange
+	if s.changes != nil {
+		change, err = s.changes.FindByTemplateAndDate(ctx, templateID, normalizeDate(date))
+		if err != nil && !errors.Is(err, repositories.ErrNotFound) {
+			return nil, err
+		}
+	}
 	occurrence := occurrenceFromTemplate(template, date)
+	applyChangeToOccurrence(&occurrence, change)
 	return &occurrence, nil
 }
 
 // expandTemplates разворачивает набор шаблонов в список конкретных занятий
 // на каждый день диапазона [from, to], которому соответствует хотя бы один
-// шаблон (день недели + чётность недели + период действия).
-func expandTemplates(templates []*models.ScheduleTemplate, from, to time.Time) ([]models.LessonOccurrence, error) {
+// шаблон (день недели + чётность недели + период действия), применяя поверх
+// замены: отменённые/перенесённые занятия скрываются, заменённые поля
+// (преподаватель/кабинет/время) подменяются.
+func expandTemplates(templates []*models.ScheduleTemplate, from, to time.Time, changes map[changeKey]*models.ScheduleChange) ([]models.LessonOccurrence, error) {
 	from = normalizeDate(from)
 	to = normalizeDate(to)
 	if to.Before(from) {
@@ -75,12 +121,77 @@ func expandTemplates(templates []*models.ScheduleTemplate, from, to time.Time) (
 	var result []models.LessonOccurrence
 	for d := from; !d.After(to); d = d.AddDate(0, 0, 1) {
 		for _, t := range templates {
-			if templateAppliesOn(t, d) {
-				result = append(result, occurrenceFromTemplate(t, d))
+			if !templateAppliesOn(t, d) {
+				continue
 			}
+			occurrence := occurrenceFromTemplate(t, d)
+			change := changes[changeKey{templateID: t.ID, date: d}]
+			// Отменённое или перенесённое на другой день занятие не показывается
+			// в этот день (перенесённое появится на new_date за счёт замены,
+			// добавляемой в список ниже).
+			if change != nil && (change.ChangeType == models.ScheduleChangeCancel || change.ChangeType == models.ScheduleChangeMove) {
+				continue
+			}
+			applyChangeToOccurrence(&occurrence, change)
+			result = append(result, occurrence)
 		}
 	}
+
+	// Занятия, перенесённые НА даты внутри диапазона (change_type=move,
+	// new_date в [from, to]): показываются на новой дате с исходным
+	// предметом/группой и времене́м исходного шаблона.
+	for key, change := range changes {
+		if change.ChangeType != models.ScheduleChangeMove || change.NewDate == nil {
+			continue
+		}
+		newDate := normalizeDate(*change.NewDate)
+		if newDate.Before(from) || newDate.After(to) {
+			continue
+		}
+		template, ok := templateByID(templates, key.templateID)
+		if !ok {
+			continue
+		}
+		occurrence := occurrenceFromTemplate(template, newDate)
+		result = append(result, occurrence)
+	}
 	return result, nil
+}
+
+// applyChangeToOccurrence накладывает замену на конкретное занятие:
+// подменяет преподавателя, кабинет или время (cancel/move обрабатываются
+// вызывающей стороной — такие занятия скрываются).
+func applyChangeToOccurrence(o *models.LessonOccurrence, change *models.ScheduleChange) {
+	if change == nil {
+		return
+	}
+	switch change.ChangeType {
+	case models.ScheduleChangeReplaceTeacher:
+		if change.NewTeacherID != nil {
+			o.TeacherID = *change.NewTeacherID
+		}
+	case models.ScheduleChangeReplaceRoom:
+		if change.NewRoomID != nil {
+			o.RoomID = *change.NewRoomID
+		}
+	case models.ScheduleChangeRescheduleTime:
+		if change.NewStartTime != nil {
+			o.StartTime = *change.NewStartTime
+		}
+		if change.NewEndTime != nil {
+			o.EndTime = *change.NewEndTime
+		}
+	}
+}
+
+// templateByID ищет шаблон в уже загруженном списке по ID.
+func templateByID(templates []*models.ScheduleTemplate, id string) (*models.ScheduleTemplate, bool) {
+	for _, t := range templates {
+		if t.ID == id {
+			return t, true
+		}
+	}
+	return nil, false
 }
 
 // templateAppliesOn проверяет, распространяется ли шаблон на конкретную
