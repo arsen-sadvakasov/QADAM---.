@@ -61,4 +61,5 @@ npm run dev
 | Phase 4 — Schedule | ✅ Готово |
 | Phase 5 — Admin Panel (Core CRUD) | ✅ Готово |
 | Phase 6 — Schedule Changes (Замены) | ✅ Готово |
-| Phase 7–16 | Ожидают |
+| Phase 7 — Materials | ✅ Готово |
+| Phase 8–16 | Ожидают |

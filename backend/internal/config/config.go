@@ -23,6 +23,10 @@ type Config struct {
 	MinioBucket    string
 	MinioUseSSL    bool
 
+	// MaterialsDir — каталог локального файлового хранилища материалов
+	// (реализация FileStorage для разработки; в продакшене — MinIO/S3).
+	MaterialsDir string
+
 	RedisURL string
 }
 
@@ -44,6 +48,8 @@ func Load() Config {
 		MinioSecretKey: getEnv("MINIO_SECRET_KEY", "qadam12345"),
 		MinioBucket:    getEnv("MINIO_BUCKET", "qadam-materials"),
 		MinioUseSSL:    getEnvBool("MINIO_USE_SSL", false),
+
+		MaterialsDir: getEnv("MATERIALS_DIR", "/tmp/qadam-materials"),
 
 		RedisURL: getEnv("REDIS_URL", "redis://localhost:6379/0"),
 	}

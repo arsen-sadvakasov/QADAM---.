@@ -20,12 +20,15 @@ phase-2-authentication            = запушено в origin
 phase-3-database-core             = запушено в origin
 phase-4-schedule                 = закоммичено и запушено
 phase-5-admin-panel               = закоммичено и запушено
-phase-6-schedule-changes (HEAD)   = 5c973db, закоммичено и запушено
+phase-6-schedule-changes            = 5c973db, закоммичено и запушено
+phase-7-materials (HEAD)           = код готов, ожидает коммита
 ```
 
 ⚠️ **Важно:** ветки `dev` и `main` по-прежнему находятся на первом коммите. Согласно договорённости, слияние в `dev` происходит **после завершения всех этапов** — это нормальное состояние, не ошибка.
 
 **Статус Phase 6 (обновлено 2026-09-08):** код закоммичен (`5c973db`) и запушен в `origin/phase-6-schedule-changes`. Этап закрыт по рабочему процессу "коммит → push".
+
+**Статус Phase 7 (2026-09-08):** код Phase 7 (Materials) реализован в рабочей копии ветки `phase-7-materials`, все проверки пройдены (`go build`, `go vet`, `go test ./...` — зелёные), ожидает коммита и push.
 
 ---
 
@@ -39,7 +42,7 @@ phase-6-schedule-changes (HEAD)   = 5c973db, закоммичено и запу�
 | 4 | Schedule | ✅ закоммичен, запушен (`phase-4-schedule`) | ✅ реализован |
 | 5 | Admin Panel (Core CRUD) | ✅ закоммичен, запушен (`phase-5-admin-panel`) | ✅ реализован |
 | 6 | Schedule Changes (Замены) | ✅ закоммичен, запушен (`phase-6-schedule-changes`, `5c973db`) | ✅ реализован |
-| 7 | Materials | ⬜ не начат | ⬜ нет кода |
+| 7 | Materials | 🟡 код готов, не закоммичен (`phase-7-materials`) | ✅ реализован |
 | 8 | Notifications | ⬜ не начат | ⬜ нет кода |
 | 9 | Curator Module | ⬜ не начат | ⬜ нет кода |
 | 10 | Session (Сессия) | ⬜ не начат | ⬜ нет кода |
@@ -50,16 +53,17 @@ phase-6-schedule-changes (HEAD)   = 5c973db, закоммичено и запу�
 | 15 | Testing (полное покрытие) | ⬜ не начат как отдельный этап (частичное покрытие тестами уже есть внутри Phase 2 и 4, см. ниже) | 🟡 частично, только auth + schedule |
 | 16 | Deployment | ⬜ не начат | ⬜ нет кода |
 
-**Текущий этап: Phase 6 — Schedule Changes (Замены)**, статус ✅ **завершён** (коммит `5c973db` запушен, все тесты зелёные). Следующий этап — Phase 7 (Materials).
+**Текущий этап: Phase 7 — Materials**, статус 🟡 **код реализован и протестирован локально** (build + vet + все unit-тесты зелёные), ждёт коммита и push.
 
-Реализовано в Phase 6:
-- Миграция `000004_schedule_changes` (таблица, unique-индекс `шаблон+дата`, CHECK по типам, триггер `updated_at`).
-- Модель `ScheduleChange`/`ScheduleChangeWithNames` с 5 типами замен: `replace_teacher`, `replace_room`, `reschedule_time`, `cancel`, `move`.
-- Репозиторий `ScheduleChangeRepository` (pgx, интерфейс + фильтры по дате/группе/преподавателю, "было→стало" через джойны).
-- Сервис `ScheduleChangeService`: валидация полей по типу замены, проверка конфликта "одна замена на шаблон+дата" (409), CRUD.
-- HTTP-хендлеры `/api/v1/schedule-changes` (GET-список с фильтрами `from/to/group_id/teacher_id`, GET/{id}, POST, PATCH, DELETE — запись только Admin).
-- Интеграция с расписанием: `ScheduleService` накладывает замены поверх шаблона — отменённые/перенесённые занятия скрываются, `replace_*`/`reschedule_time` подменяют поля, перенесённые занятия появляются на `new_date`.
-- Тесты: сервис (создание/конфликты/валидация по типам/список/обновление/удаление), применение замен к расписанию (cancel/replace/reschedule/move), HTTP-хендлеры.
+Реализовано в Phase 7:
+- Миграция `000005_materials` (таблицы `materials` + `material_files`, CHECK-ограничения по категориям/типам файлов, индексы).
+- Модели `Material`/`MaterialFile` (категории: lecture/practice/lab/extra; типы: pdf/docx/pptx/image/video_link/link).
+- Абстракция `storage.FileStorage` (раздел 14 спецификации) + реализация `LocalFileStorage` для разработки; MinIO (S3) подключается заменой реализации без изменения остального кода.
+- Репозиторий `MaterialRepository` (pgx, материалы + файлы, джойны предмета/автора).
+- Сервис `MaterialService`: CRUD, загрузка файлов (валидация типа по расширению, лимит 50 МБ), внешние ссылки, скачивание через API, права (teacher — только свои материалы, admin — все).
+- HTTP-хендлеры `/api/v1/materials`: GET-список по предмету, GET/{id} с файлами, POST, PATCH, DELETE, POST/{id}/files (multipart), POST/{id}/links, GET files/{fileID}/download, DELETE files/{fileID}.
+- Роуты в main.go (adminOrTeacher для записи), `MATERIALS_DIR` в конфиге.
+- Тесты: storage (upload/open/delete/idempotent delete/ключи), сервис (права, валидация, загрузка, ссылки, удаление из хранилища), HTTP-хендлеры.
 
 ---
 
@@ -157,9 +161,11 @@ go test ./... -v     → 23 теста, все PASS (0 FAIL)
 
 ## 6. Точный следующий шаг
 
-1. Приступить к Phase 7 (Materials): таблицы `materials`/`material_files`, HTTP API `/materials` (раздел 35), интеграция с file storage (MinIO/S3-абстракция, раздел 14).
-2. Рекомендуется отдельно (не блокируя Phase 7) при наличии Docker прогнать миграции `000001`–`000004` на реальной PostgreSQL.
-3. Рекомендуется решить проблему №7 (удалить неиспользуемое `JWTRefreshSecret` из конфига, либо задокументировать план использования).
+1. Закоммитить и запушить Phase 7 в `phase-7-materials` (по команде пользователя).
+2. Приступить к Phase 8 (Notifications): таблицы `notifications`/`notification_recipients`, HTTP API `/notifications`, уведомления при заменах расписания и новых материалах.
+3. Подключить MinIO-реализацию `FileStorage` (нужен доступ к сети для `go get github.com/minio/minio-go/v7`) — интерфейс уже готов, меняется только реализация.
+4. Рекомендуется отдельно при наличии Docker прогнать миграции `000001`–`000005` на реальной PostgreSQL.
+5. Рекомендуется решить проблему №7 (удалить неиспользуемое `JWTRefreshSecret` из конфига, либо задокументировать план использования).
 
 ---
 

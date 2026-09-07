@@ -13,6 +13,7 @@ import (
 	"github.com/qadam/backend/internal/models"
 	"github.com/qadam/backend/internal/repositories"
 	"github.com/qadam/backend/internal/services"
+	"github.com/qadam/backend/internal/storage"
 )
 
 func main() {
@@ -63,6 +64,16 @@ func main() {
 	// занятий на конкретную дату, накладываемые поверх шаблона (раздел 20).
 	scheduleChangeService := services.NewScheduleChangeService(scheduleChangeRepo, scheduleTemplateRepo)
 
+	// Phase 7 — Materials: учебные материалы. Файловое хранилище — через
+	// абстракцию FileStorage (раздел 14): локальная ФС в разработке;
+	// MinIO (S3) подключается заменой реализации без изменения остального кода.
+	fileStorage, err := storage.NewLocalFileStorage(cfg.MaterialsDir)
+	if err != nil {
+		log.Fatalf("failed to init file storage: %v", err)
+	}
+	materialRepo := repositories.NewMaterialRepository(pool)
+	materialService := services.NewMaterialService(materialRepo, fileStorage)
+
 	authHandler := handlers.NewAuthHandler(authService)
 	usersHandler := handlers.NewUsersHandler(userRepo, userAdminService)
 	schedulesHandler := handlers.NewSchedulesHandler(scheduleService, scheduleAdminService)
@@ -72,11 +83,13 @@ func main() {
 	teachersHandler := handlers.NewTeachersHandler(teacherAdminService)
 	curatorsHandler := handlers.NewCuratorsHandler(userAdminService)
 	scheduleChangesHandler := handlers.NewScheduleChangesHandler(scheduleChangeService)
+	materialsHandler := handlers.NewMaterialsHandler(materialService)
 
 	loginRateLimiter := middleware.NewRateLimiter(10, time.Minute)
 	authMiddleware := middleware.Auth(tokenService)
 	adminOnly := middleware.RequireRole(models.RoleAdmin)
 	adminOrCurator := middleware.RequireRole(models.RoleAdmin, models.RoleCurator)
+	adminOrTeacher := middleware.RequireRole(models.RoleAdmin, models.RoleTeacher)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handlers.Health)
@@ -143,6 +156,19 @@ func main() {
 	mux.Handle("POST /api/v1/schedule-changes", authMiddleware(adminOnly(http.HandlerFunc(scheduleChangesHandler.Create))))
 	mux.Handle("PATCH /api/v1/schedule-changes/{id}", authMiddleware(adminOnly(http.HandlerFunc(scheduleChangesHandler.Update))))
 	mux.Handle("DELETE /api/v1/schedule-changes/{id}", authMiddleware(adminOnly(http.HandlerFunc(scheduleChangesHandler.Delete))))
+
+	// --- Materials (Phase 7) ---
+	// Учебные материалы: просмотр — все авторизованные; создание/загрузка/удаление
+	// — Teacher (свои материалы) и Admin (раздел 21 спецификации).
+	mux.Handle("GET /api/v1/materials", authMiddleware(http.HandlerFunc(materialsHandler.List)))
+	mux.Handle("GET /api/v1/materials/{id}", authMiddleware(http.HandlerFunc(materialsHandler.Get)))
+	mux.Handle("POST /api/v1/materials", authMiddleware(adminOrTeacher(http.HandlerFunc(materialsHandler.Create))))
+	mux.Handle("PATCH /api/v1/materials/{id}", authMiddleware(adminOrTeacher(http.HandlerFunc(materialsHandler.Update))))
+	mux.Handle("DELETE /api/v1/materials/{id}", authMiddleware(adminOrTeacher(http.HandlerFunc(materialsHandler.Delete))))
+	mux.Handle("POST /api/v1/materials/{id}/files", authMiddleware(adminOrTeacher(http.HandlerFunc(materialsHandler.UploadFile))))
+	mux.Handle("POST /api/v1/materials/{id}/links", authMiddleware(adminOrTeacher(http.HandlerFunc(materialsHandler.AddLink))))
+	mux.Handle("GET /api/v1/materials/files/{fileID}/download", authMiddleware(http.HandlerFunc(materialsHandler.DownloadFile)))
+	mux.Handle("DELETE /api/v1/materials/files/{fileID}", authMiddleware(adminOrTeacher(http.HandlerFunc(materialsHandler.DeleteFile))))
 
 	var h http.Handler = mux
 	h = middleware.Logging(h)
