@@ -15,6 +15,10 @@ type MaterialRepository interface {
 	// Материалы
 	FindByID(ctx context.Context, id string) (*models.Material, error)
 	ListBySubject(ctx context.Context, subjectID string) ([]*models.Material, error)
+	// ListSubjectSubscriberUserIDs возвращает ID аккаунтов пользователей,
+	// которым читается предмет (активные студенты групп, изучающих предмет
+	// по расписанию) — для уведомлений о новых материалах (Phase 8).
+	ListSubjectSubscriberUserIDs(ctx context.Context, subjectID string) ([]string, error)
 	Create(ctx context.Context, m *models.Material) (string, error)
 	Update(ctx context.Context, m *models.Material) error
 	SoftDelete(ctx context.Context, id string) error
@@ -94,6 +98,35 @@ func collectMaterials(rows pgx.Rows) ([]*models.Material, error) {
 		result = append(result, m)
 	}
 	return result, rows.Err()
+}
+
+func (r *pgMaterialRepository) ListSubjectSubscriberUserIDs(ctx context.Context, subjectID string) ([]string, error) {
+	// Подписчики предмета — активные студенты групп, у которых предмет есть
+	// в активных шаблонах расписания (раздел 21: просмотр — студенты группы,
+	// которым читается предмет).
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT s.user_id
+		 FROM students s
+		 JOIN schedule_templates st ON st.group_id = s.group_id
+		 WHERE st.subject_id = $1 AND st.deleted_at IS NULL
+		   AND st.status = 'active'
+		   AND s.deleted_at IS NULL AND s.status = 'active'
+		   AND s.user_id IS NOT NULL`,
+		subjectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 func (r *pgMaterialRepository) Create(ctx context.Context, m *models.Material) (string, error) {

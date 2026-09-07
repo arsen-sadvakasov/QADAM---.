@@ -97,7 +97,7 @@ func newScheduleChangesTestHandler() (*ScheduleChangesHandler, *fakeScheduleChan
 			"template-1": {ID: "template-1", Status: models.ScheduleTemplateStatusActive},
 		},
 	}
-	svc := services.NewScheduleChangeService(repo, templates)
+	svc := services.NewScheduleChangeService(repo, templates, nil)
 	return NewScheduleChangesHandler(svc), repo
 }
 

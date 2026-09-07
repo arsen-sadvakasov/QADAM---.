@@ -81,6 +81,11 @@ func (f *fakeScheduleTemplateRepository) SoftDelete(_ context.Context, id string
 	return nil
 }
 
+// ListActiveStudentUserIDsByGroup — заглушка для уведомлений (Phase 8).
+func (f *fakeScheduleTemplateRepository) ListActiveStudentUserIDsByGroup(_ context.Context, groupID string) ([]string, error) {
+	return nil, nil
+}
+
 func newTestSchedulesHandler() *SchedulesHandler {
 	clock, _ := time.Parse("15:04", "09:00")
 	clockEnd, _ := time.Parse("15:04", "10:30")

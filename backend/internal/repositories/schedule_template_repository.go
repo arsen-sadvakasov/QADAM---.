@@ -15,6 +15,9 @@ type ScheduleTemplateRepository interface {
 	ListByGroup(ctx context.Context, groupID string) ([]*models.ScheduleTemplate, error)
 	ListByTeacher(ctx context.Context, teacherID string) ([]*models.ScheduleTemplate, error)
 	ListByRoom(ctx context.Context, roomID string) ([]*models.ScheduleTemplate, error)
+	// ListActiveStudentUserIDsByGroup возвращает ID аккаунтов (users.id)
+	// активных студентов группы — для fan-out уведомлений о заменах (Phase 8).
+	ListActiveStudentUserIDsByGroup(ctx context.Context, groupID string) ([]string, error)
 	Create(ctx context.Context, t *models.ScheduleTemplate) (string, error)
 	Update(ctx context.Context, t *models.ScheduleTemplate) error
 	SoftDelete(ctx context.Context, id string) error
@@ -114,6 +117,28 @@ func (r *pgScheduleTemplateRepository) ListByRoom(ctx context.Context, roomID st
 	}
 	defer rows.Close()
 	return collectScheduleTemplates(rows)
+}
+
+func (r *pgScheduleTemplateRepository) ListActiveStudentUserIDsByGroup(ctx context.Context, groupID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT s.user_id FROM students s
+		 WHERE s.group_id = $1 AND s.deleted_at IS NULL
+		   AND s.status = 'active' AND s.user_id IS NOT NULL`,
+		groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 func collectScheduleTemplates(rows pgx.Rows) ([]*models.ScheduleTemplate, error) {

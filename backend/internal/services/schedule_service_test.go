@@ -12,10 +12,11 @@ import (
 
 // fakeScheduleTemplateRepository — тестовая заглушка ScheduleTemplateRepository.
 type fakeScheduleTemplateRepository struct {
-	byID      map[string]*models.ScheduleTemplate
-	byGroup   map[string][]*models.ScheduleTemplate
-	byTeacher map[string][]*models.ScheduleTemplate
-	byRoom    map[string][]*models.ScheduleTemplate
+	byID           map[string]*models.ScheduleTemplate
+	byGroup        map[string][]*models.ScheduleTemplate
+	byTeacher      map[string][]*models.ScheduleTemplate
+	byRoom         map[string][]*models.ScheduleTemplate
+	studentUserIDs []string // UserID активных студентов группы (Phase 8 уведомления)
 }
 
 func newFakeScheduleTemplateRepository() *fakeScheduleTemplateRepository {
@@ -84,6 +85,12 @@ func (f *fakeScheduleTemplateRepository) rebuildIndexes() {
 func (f *fakeScheduleTemplateRepository) SoftDelete(_ context.Context, id string) error {
 	delete(f.byID, id)
 	return nil
+}
+
+// ListActiveStudentUserIDsByGroup — заглушка для уведомлений (Phase 8):
+// возвращает UserID активных студентов группы из заглушенных шаблонов.
+func (f *fakeScheduleTemplateRepository) ListActiveStudentUserIDsByGroup(_ context.Context, groupID string) ([]string, error) {
+	return f.studentUserIDs, nil
 }
 
 func mustParseDate(t *testing.T, s string) time.Time {

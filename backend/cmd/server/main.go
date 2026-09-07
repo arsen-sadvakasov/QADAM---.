@@ -60,9 +60,14 @@ func main() {
 	teacherAdminService := services.NewTeacherAdminService(userAdminService, teacherRepo)
 	scheduleAdminService := services.NewScheduleAdminService(scheduleTemplateRepo)
 
+	// Phase 8 — Notifications: уведомления о заменах расписания и новых
+	// материалах (раздел 19 спецификации), системные уведомления от Admin.
+	notificationRepo := repositories.NewNotificationRepository(pool)
+	notificationService := services.NewNotificationService(notificationRepo)
+
 	// Phase 6 — Schedule Changes (Замены): точечные замены/отмены/переносы
 	// занятий на конкретную дату, накладываемые поверх шаблона (раздел 20).
-	scheduleChangeService := services.NewScheduleChangeService(scheduleChangeRepo, scheduleTemplateRepo)
+	scheduleChangeService := services.NewScheduleChangeService(scheduleChangeRepo, scheduleTemplateRepo, notificationService)
 
 	// Phase 7 — Materials: учебные материалы. Файловое хранилище — через
 	// абстракцию FileStorage (раздел 14): локальная ФС в разработке;
@@ -72,7 +77,7 @@ func main() {
 		log.Fatalf("failed to init file storage: %v", err)
 	}
 	materialRepo := repositories.NewMaterialRepository(pool)
-	materialService := services.NewMaterialService(materialRepo, fileStorage)
+	materialService := services.NewMaterialService(materialRepo, fileStorage, notificationService)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	usersHandler := handlers.NewUsersHandler(userRepo, userAdminService)
@@ -84,6 +89,7 @@ func main() {
 	curatorsHandler := handlers.NewCuratorsHandler(userAdminService)
 	scheduleChangesHandler := handlers.NewScheduleChangesHandler(scheduleChangeService)
 	materialsHandler := handlers.NewMaterialsHandler(materialService)
+	notificationsHandler := handlers.NewNotificationsHandler(notificationService)
 
 	loginRateLimiter := middleware.NewRateLimiter(10, time.Minute)
 	authMiddleware := middleware.Auth(tokenService)
@@ -169,6 +175,13 @@ func main() {
 	mux.Handle("POST /api/v1/materials/{id}/links", authMiddleware(adminOrTeacher(http.HandlerFunc(materialsHandler.AddLink))))
 	mux.Handle("GET /api/v1/materials/files/{fileID}/download", authMiddleware(http.HandlerFunc(materialsHandler.DownloadFile)))
 	mux.Handle("DELETE /api/v1/materials/files/{fileID}", authMiddleware(adminOrTeacher(http.HandlerFunc(materialsHandler.DeleteFile))))
+
+	// --- Notifications (Phase 8) ---
+	// Список своих уведомлений и отметка прочтения — все авторизованные;
+	// создание системного уведомления — Admin (раздел 35 API Plan).
+	mux.Handle("GET /api/v1/notifications", authMiddleware(http.HandlerFunc(notificationsHandler.List)))
+	mux.Handle("PATCH /api/v1/notifications/{id}/read", authMiddleware(http.HandlerFunc(notificationsHandler.MarkRead)))
+	mux.Handle("POST /api/v1/notifications", authMiddleware(adminOnly(http.HandlerFunc(notificationsHandler.Create))))
 
 	var h http.Handler = mux
 	h = middleware.Logging(h)

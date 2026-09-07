@@ -96,7 +96,7 @@ func baseScheduleChangeInput(t *testing.T) ScheduleChangeInput {
 func TestScheduleChangeService_Create_Success(t *testing.T) {
 	templates := newFakeScheduleTemplateRepository()
 	templates.byID["template-1"] = &models.ScheduleTemplate{ID: "template-1", Status: models.ScheduleTemplateStatusActive}
-	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), templates)
+	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), templates, nil)
 
 	created, err := svc.Create(context.Background(), "admin-1", baseScheduleChangeInput(t))
 	if err != nil {
@@ -112,7 +112,7 @@ func TestScheduleChangeService_Create_Success(t *testing.T) {
 
 func TestScheduleChangeService_Create_TemplateNotFound(t *testing.T) {
 	templates := newFakeScheduleTemplateRepository()
-	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), templates)
+	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), templates, nil)
 
 	_, err := svc.Create(context.Background(), "admin-1", baseScheduleChangeInput(t))
 	if !errors.Is(err, repositories.ErrNotFound) {
@@ -123,7 +123,7 @@ func TestScheduleChangeService_Create_TemplateNotFound(t *testing.T) {
 func TestScheduleChangeService_Create_DuplicateForSameDate(t *testing.T) {
 	templates := newFakeScheduleTemplateRepository()
 	templates.byID["template-1"] = &models.ScheduleTemplate{ID: "template-1", Status: models.ScheduleTemplateStatusActive}
-	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), templates)
+	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), templates, nil)
 
 	if _, err := svc.Create(context.Background(), "admin-1", baseScheduleChangeInput(t)); err != nil {
 		t.Fatalf("unexpected error creating first change: %v", err)
@@ -138,7 +138,7 @@ func TestScheduleChangeService_Create_DuplicateForSameDate(t *testing.T) {
 func TestScheduleChangeService_Create_ValidationByType(t *testing.T) {
 	templates := newFakeScheduleTemplateRepository()
 	templates.byID["template-1"] = &models.ScheduleTemplate{ID: "template-1", Status: models.ScheduleTemplateStatusActive}
-	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), templates)
+	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), templates, nil)
 	ctx := context.Background()
 
 	// replace_teacher без new_teacher_id
@@ -194,7 +194,7 @@ func TestScheduleChangeService_Create_ValidationByType(t *testing.T) {
 func TestScheduleChangeService_Create_ValidTypesPass(t *testing.T) {
 	templates := newFakeScheduleTemplateRepository()
 	templates.byID["template-1"] = &models.ScheduleTemplate{ID: "template-1", Status: models.ScheduleTemplateStatusActive}
-	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), templates)
+	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), templates, nil)
 	ctx := context.Background()
 	admin := "admin-1"
 
@@ -243,7 +243,7 @@ func TestScheduleChangeService_Create_ValidTypesPass(t *testing.T) {
 }
 
 func TestScheduleChangeService_List_BothFiltersRejected(t *testing.T) {
-	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), newFakeScheduleTemplateRepository())
+	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), newFakeScheduleTemplateRepository(), nil)
 
 	from := mustParseDate(t, "2024-03-11")
 	to := mustParseDate(t, "2024-03-17")
@@ -254,7 +254,7 @@ func TestScheduleChangeService_List_BothFiltersRejected(t *testing.T) {
 }
 
 func TestScheduleChangeService_List_InvalidRange(t *testing.T) {
-	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), newFakeScheduleTemplateRepository())
+	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), newFakeScheduleTemplateRepository(), nil)
 
 	from := mustParseDate(t, "2024-03-17")
 	to := mustParseDate(t, "2024-03-11")
@@ -268,7 +268,7 @@ func TestScheduleChangeService_Update_Success(t *testing.T) {
 	templates := newFakeScheduleTemplateRepository()
 	templates.byID["template-1"] = &models.ScheduleTemplate{ID: "template-1", Status: models.ScheduleTemplateStatusActive}
 	repo := newFakeScheduleChangeRepository()
-	svc := NewScheduleChangeService(repo, templates)
+	svc := NewScheduleChangeService(repo, templates, nil)
 	ctx := context.Background()
 
 	created, err := svc.Create(ctx, "admin-1", baseScheduleChangeInput(t))
@@ -290,7 +290,7 @@ func TestScheduleChangeService_Update_Success(t *testing.T) {
 }
 
 func TestScheduleChangeService_Update_NotFound(t *testing.T) {
-	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), newFakeScheduleTemplateRepository())
+	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), newFakeScheduleTemplateRepository(), nil)
 
 	_, err := svc.Update(context.Background(), "missing", baseScheduleChangeInput(t))
 	if !errors.Is(err, repositories.ErrNotFound) {
@@ -302,7 +302,7 @@ func TestScheduleChangeService_Delete(t *testing.T) {
 	templates := newFakeScheduleTemplateRepository()
 	templates.byID["template-1"] = &models.ScheduleTemplate{ID: "template-1", Status: models.ScheduleTemplateStatusActive}
 	repo := newFakeScheduleChangeRepository()
-	svc := NewScheduleChangeService(repo, templates)
+	svc := NewScheduleChangeService(repo, templates, nil)
 	ctx := context.Background()
 
 	created, err := svc.Create(ctx, "admin-1", baseScheduleChangeInput(t))

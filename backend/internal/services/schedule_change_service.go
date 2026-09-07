@@ -35,16 +35,26 @@ type ScheduleChangeInput struct {
 
 // ScheduleChangeService реализует бизнес-логику замен расписания
 // (Phase 6 спецификации): валидация по типу замены, проверка конфликта
-// "одна замена на шаблон+дата", CRUD.
+// "одна замена на шаблон+дата", CRUD, авто-уведомления затронутым
+// пользователям (Phase 8).
 type ScheduleChangeService struct {
 	changes   repositories.ScheduleChangeRepository
 	templates repositories.ScheduleTemplateRepository
+	notifier  ScheduleChangeNotifier
+}
+
+// ScheduleChangeNotifier — интерфейс отправки уведомлений о заменах.
+// Отделяет сервис замен от сервиса уведомлений (упрощает тестирование;
+// реализуется *NotificationService).
+type ScheduleChangeNotifier interface {
+	NotifyScheduleChange(ctx context.Context, changeType models.ScheduleChangeType,
+		changeID, groupName, subjectName, changeDate string, studentUserIDs []string) error
 }
 
 // NewScheduleChangeService создаёт ScheduleChangeService с внедрёнными
-// репозиториями.
-func NewScheduleChangeService(changes repositories.ScheduleChangeRepository, templates repositories.ScheduleTemplateRepository) *ScheduleChangeService {
-	return &ScheduleChangeService{changes: changes, templates: templates}
+// репозиториями. notifier может быть nil (тогда уведомления не отправляются).
+func NewScheduleChangeService(changes repositories.ScheduleChangeRepository, templates repositories.ScheduleTemplateRepository, notifier ScheduleChangeNotifier) *ScheduleChangeService {
+	return &ScheduleChangeService{changes: changes, templates: templates, notifier: notifier}
 }
 
 // Create создаёт замену, проверяя существование шаблона и отсутствие
@@ -54,7 +64,8 @@ func (s *ScheduleChangeService) Create(ctx context.Context, createdBy string, in
 		return nil, err
 	}
 
-	if _, err := s.templates.FindByID(ctx, in.ScheduleTemplateID); err != nil {
+	template, err := s.templates.FindByID(ctx, in.ScheduleTemplateID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -84,7 +95,24 @@ func (s *ScheduleChangeService) Create(ctx context.Context, createdBy string, in
 		return nil, err
 	}
 	change.ID = id
+
+	s.notifyScheduleChange(ctx, change, template)
 	return change, nil
+}
+
+// notifyScheduleChange отправляет уведомление студентам группы о замене.
+// Ошибка уведомления не откатывает создание замены — замену логируем.
+func (s *ScheduleChangeService) notifyScheduleChange(ctx context.Context, change *models.ScheduleChange, template *models.ScheduleTemplate) {
+	if s.notifier == nil {
+		return
+	}
+	studentUserIDs, err := s.templates.ListActiveStudentUserIDsByGroup(ctx, template.GroupID)
+	if err != nil || len(studentUserIDs) == 0 {
+		return
+	}
+	_ = s.notifier.NotifyScheduleChange(ctx, change.ChangeType, change.ID,
+		template.GroupName, template.SubjectName,
+		change.ChangeDate.Format("2006-01-02"), studentUserIDs)
 }
 
 // Get возвращает замену по ID.

@@ -30,6 +30,11 @@ func (f *fakeMaterialRepository) genID(prefix string) string {
 	return prefix + "-" + string(rune('0'+f.nextID))
 }
 
+// ListSubjectSubscriberUserIDs — заглушка для уведомлений (Phase 8).
+func (f *fakeMaterialRepository) ListSubjectSubscriberUserIDs(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}
+
 func (f *fakeMaterialRepository) FindByID(_ context.Context, id string) (*models.Material, error) {
 	if m, ok := f.byID[id]; ok {
 		return m, nil
@@ -106,7 +111,7 @@ func newMaterialsTestHandler() (*MaterialsHandler, *fakeMaterialRepository) {
 		byID:  make(map[string]*models.Material),
 		files: make(map[string]*models.MaterialFile),
 	}
-	svc := services.NewMaterialService(repo, fs)
+	svc := services.NewMaterialService(repo, fs, nil)
 	return NewMaterialsHandler(svc), repo
 }
 

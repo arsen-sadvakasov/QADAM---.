@@ -16,10 +16,11 @@ import (
 // fakeMaterialRepository — in-memory реализация
 // repositories.MaterialRepository для unit-тестов.
 type fakeMaterialRepository struct {
-	byID       map[string]*models.Material
-	files      map[string]*models.MaterialFile
-	nextID     int
-	deletedIDs []string
+	byID              map[string]*models.Material
+	files             map[string]*models.MaterialFile
+	nextID            int
+	deletedIDs        []string
+	subscriberUserIDs []string // подписчики предмета для уведомлений (Phase 8)
 }
 
 func newFakeMaterialRepository() *fakeMaterialRepository {
@@ -32,6 +33,12 @@ func newFakeMaterialRepository() *fakeMaterialRepository {
 func (f *fakeMaterialRepository) genID(prefix string) string {
 	f.nextID++
 	return prefix + "-" + string(rune('0'+f.nextID))
+}
+
+// ListSubjectSubscriberUserIDs — заглушка для уведомлений (Phase 8):
+// возвращает настроенный список подписчиков (subscriberUserIDs).
+func (f *fakeMaterialRepository) ListSubjectSubscriberUserIDs(_ context.Context, _ string) ([]string, error) {
+	return f.subscriberUserIDs, nil
 }
 
 func (f *fakeMaterialRepository) FindByID(_ context.Context, id string) (*models.Material, error) {
@@ -115,7 +122,7 @@ func newMaterialTestService(t *testing.T) (*MaterialService, *fakeMaterialReposi
 		t.Fatalf("failed to init storage: %v", err)
 	}
 	repo := newFakeMaterialRepository()
-	return NewMaterialService(repo, fs), repo
+	return NewMaterialService(repo, fs, nil), repo
 }
 
 func TestMaterialService_Create_Success(t *testing.T) {

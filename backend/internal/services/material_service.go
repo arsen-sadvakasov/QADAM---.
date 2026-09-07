@@ -71,15 +71,23 @@ type MaterialLinkInput struct {
 
 // MaterialService реализует бизнес-логику учебных материалов (Phase 7):
 // CRUD материалов, загрузка файлов через FileStorage, права доступа
-// (upload: teacher по своим предметам + admin; просмотр: все авторизованные).
+// (upload: teacher по своим предметам + admin; просмотр: все авторизованные),
+// авто-уведомления о новых материалах (Phase 8).
 type MaterialService struct {
 	materials repositories.MaterialRepository
 	storage   storage.FileStorage
+	notifier  MaterialNotifier
+}
+
+// MaterialNotifier — интерфейс отправки уведомлений о новых материалах.
+type MaterialNotifier interface {
+	NotifyNewMaterial(ctx context.Context, materialID, subjectName, materialTitle string, recipientUserIDs []string) error
 }
 
 // NewMaterialService создаёт MaterialService с внедрёнными зависимостями.
-func NewMaterialService(materials repositories.MaterialRepository, fileStorage storage.FileStorage) *MaterialService {
-	return &MaterialService{materials: materials, storage: fileStorage}
+// notifier может быть nil (тогда уведомления не отправляются).
+func NewMaterialService(materials repositories.MaterialRepository, fileStorage storage.FileStorage, notifier MaterialNotifier) *MaterialService {
+	return &MaterialService{materials: materials, storage: fileStorage, notifier: notifier}
 }
 
 // Create создаёт материал. createdByID — ID пользователя (teacher/admin).
@@ -108,7 +116,25 @@ func (s *MaterialService) Create(ctx context.Context, createdByID string, in Mat
 	if err != nil {
 		return nil, err
 	}
-	return s.materials.FindByID(ctx, id)
+	created, err := s.materials.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	s.notifyNewMaterial(ctx, created)
+	return created, nil
+}
+
+// notifyNewMaterial отправляет уведомление подписчикам предмета о новом
+// материале. Ошибка уведомления не влияет на создание материала.
+func (s *MaterialService) notifyNewMaterial(ctx context.Context, m *models.Material) {
+	if s.notifier == nil {
+		return
+	}
+	recipients, err := s.materials.ListSubjectSubscriberUserIDs(ctx, m.SubjectID)
+	if err != nil || len(recipients) == 0 {
+		return
+	}
+	_ = s.notifier.NotifyNewMaterial(ctx, m.ID, m.SubjectName, m.Title, recipients)
 }
 
 // Get возвращает материал вместе с его файлами.
