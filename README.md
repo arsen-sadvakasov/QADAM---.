@@ -51,12 +51,13 @@ npm run dev
 ## Статус разработки
 
 Разработка ведётся строго поэтапно (16 фаз), согласно разделу 36 спецификации.
-Текущий этап: **Phase 3 — Database Core** ✅.
+Текущий этап: **Phase 4 — Schedule** ✅.
 
 | Фаза | Статус |
 |---|---|
 | Phase 1 — Project Setup | ✅ Готово |
 | Phase 2 — Authentication | ✅ Готово |
 | Phase 3 — Database Core | ✅ Готово |
-| Phase 4 — Schedule | ⏳ Следующий |
-| Phase 5–16 | Ожидают |
+| Phase 4 — Schedule | ✅ Готово |
+| Phase 5 — Admin Panel (Core CRUD) | ⏳ Следующий |
+| Phase 6–16 | Ожидают |

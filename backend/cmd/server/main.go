@@ -45,8 +45,14 @@ func main() {
 	_ = repositories.NewTeacherRepository(pool)
 	_ = repositories.NewStudentRepository(pool)
 
+	// Phase 4 — Schedule: вычисление расписания на день/неделю/месяц из
+	// schedule_templates + карточка занятия (FR-2, FR-3 спецификации).
+	scheduleTemplateRepo := repositories.NewScheduleTemplateRepository(pool)
+	scheduleService := services.NewScheduleService(scheduleTemplateRepo)
+
 	authHandler := handlers.NewAuthHandler(authService)
 	usersHandler := handlers.NewUsersHandler(userRepo)
+	schedulesHandler := handlers.NewSchedulesHandler(scheduleService)
 
 	loginRateLimiter := middleware.NewRateLimiter(10, time.Minute)
 	authMiddleware := middleware.Auth(tokenService)
@@ -59,6 +65,9 @@ func main() {
 	mux.Handle("POST /api/v1/auth/logout", authMiddleware(http.HandlerFunc(authHandler.Logout)))
 
 	mux.Handle("GET /api/v1/users/me", authMiddleware(http.HandlerFunc(usersHandler.Me)))
+
+	mux.Handle("GET /api/v1/schedules", authMiddleware(http.HandlerFunc(schedulesHandler.GetSchedule)))
+	mux.Handle("GET /api/v1/schedules/lesson/{id}", authMiddleware(http.HandlerFunc(schedulesHandler.GetLessonDetails)))
 
 	// Пример защищённого admin-only маршрута — демонстрирует использование
 	// RequireRole; полноценный CRUD появится в Phase 5 (Admin Panel).
