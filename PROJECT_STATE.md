@@ -22,7 +22,8 @@ phase-4-schedule                 = закоммичено и запушено
 phase-5-admin-panel               = закоммичено и запушено
 phase-6-schedule-changes            = 5c973db, закоммичено и запушено
 phase-7-materials                    = 440395b, закоммичено и запушено
-phase-8-notifications (HEAD)        = код готов, ожидает коммита
+phase-8-notifications               = adf6046, закоммичено и запушено
+phase-9-curator-module (HEAD)      = код готов, ожидает коммита
 ```
 
 ⚠️ **Важно:** ветки `dev` и `main` по-прежнему находятся на первом коммите. Согласно договорённости, слияние в `dev` происходит **после завершения всех этапов** — это нормальное состояние, не ошибка.
@@ -31,7 +32,9 @@ phase-8-notifications (HEAD)        = код готов, ожидает комм
 
 **Статус Phase 7 (2026-09-08):** код закоммичен (`440395b`) и запушен в `origin/phase-7-materials`. Этап закрыт.
 
-**Статус Phase 8 (2026-09-08):** код Phase 8 (Notifications) реализован в рабочей копии ветки `phase-8-notifications`, все проверки пройдены (`go build`, `go vet`, `go test ./...` — зелёные), ожидает коммита и push.
+**Статус Phase 8 (2026-09-08):** код закоммичен (`adf6046`) и запушен в `origin/phase-8-notifications`. Этап закрыт.
+
+**Статус Phase 9 (2026-09-08):** код Phase 9 (Curator Module) реализован в рабочей копии ветки `phase-9-curator-module`, все проверки пройдены (`go build`, `go vet`, `go test ./...` — зелёные), ожидает коммита и push.
 
 ---
 
@@ -46,8 +49,8 @@ phase-8-notifications (HEAD)        = код готов, ожидает комм
 | 5 | Admin Panel (Core CRUD) | ✅ закоммичен, запушен (`phase-5-admin-panel`) | ✅ реализован |
 | 6 | Schedule Changes (Замены) | ✅ закоммичен, запушен (`phase-6-schedule-changes`, `5c973db`) | ✅ реализован |
 | 7 | Materials | ✅ закоммичен, запушен (`phase-7-materials`, `440395b`) | ✅ реализован |
-| 8 | Notifications | 🟡 код готов, не закоммичен (`phase-8-notifications`) | ✅ реализован |
-| 9 | Curator Module | ⬜ не начат | ⬜ нет кода |
+| 8 | Notifications | ✅ закоммичен, запушен (`phase-8-notifications`, `adf6046`) | ✅ реализован |
+| 9 | Curator Module | 🟡 код готов, не закоммичен (`phase-9-curator-module`) | ✅ реализован |
 | ~~10~~ | ~~Session (Сессия)~~ | ❌ исключён из роадмапа (решение пользователя 2026-09-08: экзамены/сессия пока не нужны сайту) | — |
 | 11 | Search | ⬜ не начат | ⬜ нет кода |
 | 12 | Localization | ⬜ не начат (только пустые папки `locales/{en,kz,ru}`) | ⬜ нет кода |
@@ -56,17 +59,14 @@ phase-8-notifications (HEAD)        = код готов, ожидает комм
 | 15 | Testing (полное покрытие) | ⬜ не начат как отдельный этап (частичное покрытие тестами уже есть внутри Phase 2 и 4, см. ниже) | 🟡 частично, только auth + schedule |
 | 16 | Deployment | ⬜ не начат | ⬜ нет кода |
 
-**Текущий этап: Phase 8 — Notifications**, статус 🟡 **код реализован и протестирован локально** (build + vet + все unit-тесты зелёные), ждёт коммита и push.
+**Текущий этап: Phase 9 — Curator Module**, статус 🟡 **код реализован и протестирован локально** (build + vet + все unit-тесты зелёные), ждёт коммита и push.
 
-Реализовано в Phase 8:
-- Миграция `000006_notifications` (таблицы `notifications` + `notification_recipients`, unique-индекс "уведомление+пользователь", индекс для выборки непрочитанных, CHECK по типам/приоритетам).
-- Модели `Notification`/`NotificationRecipient`/`UserNotification` (6 типов: schedule_change/replacement/cancellation/new_material/system/session; 4 приоритета).
-- Репозиторий `NotificationRepository` (pgx, транзакционный fan-out на получателей bulk-INSERT'ом, фильтр is_read, счётчик непрочитанных).
-- Сервис `NotificationService`: создание с валидацией, список своих, отметка прочтения (только своё — 403 для чужих, не раскрывая существование), авто-уведомления `NotifyScheduleChange`/`NotifyNewMaterial`.
-- HTTP-хендлеры `/api/v1/notifications`: GET-список с фильтрами `is_read`/`limit` + `unread_count`, PATCH/{id}/read, POST (Admin, через middleware).
-- Интеграция: `ScheduleChangeService` и `MaterialService` принимают Notifier-интерфейсы (nil-safe, ошибка уведомления не ломает основную операцию); в main.go передан `notificationService`.
-- Репозитории дополнены: `ListActiveStudentUserIDsByGroup` (шаблоны), `ListSubjectSubscriberUserIDs` (материалы) — выборка получателей fan-out.
-- Тесты: сервис уведомлений (валидация, права, фильтры, авто-уведомления), spy-тесты интеграции (замена→уведомление, материал→уведомление, ошибка notifier не ломает создание), HTTP-хендлеры.
+Реализовано в Phase 9:
+- Репозиторий `StudentRepository` дополнен методом `List` с фильтрами по группе/статусу.
+- Сервис `CuratorService`: CRUD студентов с проверкой прав "куратор — только своя группа" (через `groups.curator_id`), admin — все; валидация статусов обучения (active/expelled/academic_leave/graduated); перевод студента в другую группу с проверкой прав на обе группы; список студентов куратора без фильтра — все его группы.
+- HTTP-хендлеры `/api/v1/students`: GET-список с фильтрами `group_id`/`status`, GET/{id}, POST, PATCH, DELETE (soft delete). Доступ: adminOrCurator на уровне роутов + проверка владения группой в сервисе (403).
+- Роуты в main.go; репозиторий студентов подключён (ранее был заглушкой).
+- Тесты: сервис (права своей/чужой группы, валидация статусов, перевод, фильтры, admin видит всех), HTTP-хендлеры (CRUD, 403, 404).
 
 ---
 
@@ -164,8 +164,8 @@ go test ./... -v     → 23 теста, все PASS (0 FAIL)
 
 ## 6. Точный следующий шаг
 
-1. Закоммитить и запушить Phase 8 в `phase-8-notifications` (по команде пользователя).
-2. Приступить к Phase 9 (Curator Module): студенческий CRUD, статусы студентов, управление группой куратором.
+1. Закоммитить и запушить Phase 9 в `phase-9-curator-module` (по команде пользователя).
+2. Приступить к Phase 11 (Search): глобальный поиск по студентам/преподавателям/группам/предметам/кабинетам с учётом прав (GIN-индексы pg_trgm, раздел 34.2).
 3. Подключить MinIO-реализацию `FileStorage` (нужен доступ к сети для `go get github.com/minio/minio-go/v7`) — интерфейс уже готов, меняется только реализация.
 4. Рекомендуется отдельно при наличии Docker прогнать миграции `000001`–`000006` на реальной PostgreSQL.
 5. Рекомендуется решить проблему №7 (удалить неиспользуемое `JWTRefreshSecret` из конфига, либо задокументировать план использования).

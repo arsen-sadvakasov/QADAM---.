@@ -43,7 +43,6 @@ func main() {
 	subjectRepo := repositories.NewSubjectRepository(pool)
 	roomRepo := repositories.NewRoomRepository(pool)
 	teacherRepo := repositories.NewTeacherRepository(pool)
-	_ = repositories.NewStudentRepository(pool) // студенческий CRUD — Phase 9 (Curator Module)
 	_ = specialtyRepo                           // CRUD специальностей/курсов не входит в API Plan Phase 5 (только справочные данные)
 	_ = courseRepo
 
@@ -64,6 +63,12 @@ func main() {
 	// материалах (раздел 19 спецификации), системные уведомления от Admin.
 	notificationRepo := repositories.NewNotificationRepository(pool)
 	notificationService := services.NewNotificationService(notificationRepo)
+
+	// Phase 9 — Curator Module: управление студентами группы с проверкой
+	// прав "куратор — своя группа" (groups.curator_id), admin — все
+	// (разделы 17, 22 спецификации).
+	studentRepo := repositories.NewStudentRepository(pool)
+	curatorService := services.NewCuratorService(studentRepo, groupRepo)
 
 	// Phase 6 — Schedule Changes (Замены): точечные замены/отмены/переносы
 	// занятий на конкретную дату, накладываемые поверх шаблона (раздел 20).
@@ -87,6 +92,7 @@ func main() {
 	subjectsHandler := handlers.NewSubjectsHandler(subjectRepo)
 	teachersHandler := handlers.NewTeachersHandler(teacherAdminService)
 	curatorsHandler := handlers.NewCuratorsHandler(userAdminService)
+	studentsHandler := handlers.NewStudentsHandler(curatorService)
 	scheduleChangesHandler := handlers.NewScheduleChangesHandler(scheduleChangeService)
 	materialsHandler := handlers.NewMaterialsHandler(materialService)
 	notificationsHandler := handlers.NewNotificationsHandler(notificationService)
@@ -182,6 +188,15 @@ func main() {
 	mux.Handle("GET /api/v1/notifications", authMiddleware(http.HandlerFunc(notificationsHandler.List)))
 	mux.Handle("PATCH /api/v1/notifications/{id}/read", authMiddleware(http.HandlerFunc(notificationsHandler.MarkRead)))
 	mux.Handle("POST /api/v1/notifications", authMiddleware(adminOnly(http.HandlerFunc(notificationsHandler.Create))))
+
+	// --- Students (Phase 9 — Curator Module) ---
+	// Доступ: Curator (своя группа — проверка groups.curator_id в сервисе)
+	// и Admin. Преподаватели/студенты права управления не имеют.
+	mux.Handle("GET /api/v1/students", authMiddleware(adminOrCurator(http.HandlerFunc(studentsHandler.List))))
+	mux.Handle("GET /api/v1/students/{id}", authMiddleware(adminOrCurator(http.HandlerFunc(studentsHandler.Get))))
+	mux.Handle("POST /api/v1/students", authMiddleware(adminOrCurator(http.HandlerFunc(studentsHandler.Create))))
+	mux.Handle("PATCH /api/v1/students/{id}", authMiddleware(adminOrCurator(http.HandlerFunc(studentsHandler.Update))))
+	mux.Handle("DELETE /api/v1/students/{id}", authMiddleware(adminOrCurator(http.HandlerFunc(studentsHandler.Delete))))
 
 	var h http.Handler = mux
 	h = middleware.Logging(h)

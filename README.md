@@ -63,4 +63,6 @@ npm run dev
 | Phase 6 — Schedule Changes (Замены) | ✅ Готово |
 | Phase 7 — Materials | ✅ Готово |
 | Phase 8 — Notifications | ✅ Готово |
-| Phase 9–16 | Ожидают |
+| Phase 9 — Curator Module | ✅ Готово |
+| Phase 10 — Session | ❌ Исключён из роадмапа (решение пользователя) |
+| Phase 11–16 | Ожидают |

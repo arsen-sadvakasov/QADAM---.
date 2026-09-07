@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -13,6 +14,9 @@ import (
 type StudentRepository interface {
 	FindByID(ctx context.Context, id string) (*models.Student, error)
 	ListByGroup(ctx context.Context, groupID string) ([]*models.Student, error)
+	// List возвращает студентов с фильтрами (Phase 9 — Curator Module).
+	// Пустые groupID/status означают «без фильтра».
+	List(ctx context.Context, groupID, status string) ([]*models.Student, error)
 	Create(ctx context.Context, s *models.Student) (string, error)
 	Update(ctx context.Context, s *models.Student) error
 	SoftDelete(ctx context.Context, id string) error
@@ -70,6 +74,38 @@ func (r *pgStudentRepository) ListByGroup(ctx context.Context, groupID string) (
 		 ORDER BY u.full_name`,
 		groupID,
 	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []*models.Student
+	for rows.Next() {
+		s, err := scanStudent(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, s)
+	}
+	return result, rows.Err()
+}
+
+func (r *pgStudentRepository) List(ctx context.Context, groupID, status string) ([]*models.Student, error) {
+	query := `SELECT ` + studentSelectColumns + `
+		 FROM students s LEFT JOIN users u ON u.id = s.user_id
+		 WHERE s.deleted_at IS NULL`
+	args := []any{}
+	if groupID != "" {
+		args = append(args, groupID)
+		query += fmt.Sprintf(" AND s.group_id = $%d", len(args))
+	}
+	if status != "" {
+		args = append(args, status)
+		query += fmt.Sprintf(" AND s.status = $%d", len(args))
+	}
+	query += " ORDER BY u.full_name"
+
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
