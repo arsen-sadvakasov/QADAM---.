@@ -18,16 +18,16 @@ const dateLayout = "2006-01-02"
 const timeLayout = "15:04"
 
 // SchedulesHandler содержит HTTP-хендлеры для /api/v1/schedules/*
-// (раздел 35 API Plan). CRUD для schedule_templates (создание/редактирование
-// занятий администратором) добавляется в Phase 5 — Admin Panel; здесь —
-// только чтение вычисленного расписания (FR-2, FR-3 спецификации).
+// (раздел 35 API Plan): чтение вычисленного расписания (Phase 4, FR-2/FR-3)
+// и CRUD шаблонов занятий для администратора (Phase 5 — Admin Panel).
 type SchedulesHandler struct {
 	schedule *services.ScheduleService
+	admin    *services.ScheduleAdminService
 }
 
-// NewSchedulesHandler создаёт SchedulesHandler с внедрённым ScheduleService.
-func NewSchedulesHandler(schedule *services.ScheduleService) *SchedulesHandler {
-	return &SchedulesHandler{schedule: schedule}
+// NewSchedulesHandler создаёт SchedulesHandler с внедрёнными зависимостями.
+func NewSchedulesHandler(schedule *services.ScheduleService, admin *services.ScheduleAdminService) *SchedulesHandler {
+	return &SchedulesHandler{schedule: schedule, admin: admin}
 }
 
 type lessonOccurrenceDTO struct {
@@ -196,4 +196,186 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+type scheduleTemplateDTO struct {
+	ID         string  `json:"id"`
+	GroupID    string  `json:"group_id"`
+	SubjectID  string  `json:"subject_id"`
+	TeacherID  string  `json:"teacher_id"`
+	RoomID     string  `json:"room_id"`
+	DayOfWeek  int     `json:"day_of_week"`
+	StartTime  string  `json:"start_time"`
+	EndTime    string  `json:"end_time"`
+	LessonType string  `json:"lesson_type"`
+	WeekParity string  `json:"week_parity"`
+	ValidFrom  string  `json:"valid_from"`
+	ValidTo    *string `json:"valid_to"`
+	Status     string  `json:"status"`
+}
+
+func scheduleTemplateDTOFromModel(t *models.ScheduleTemplate) scheduleTemplateDTO {
+	dto := scheduleTemplateDTO{
+		ID:         t.ID,
+		GroupID:    t.GroupID,
+		SubjectID:  t.SubjectID,
+		TeacherID:  t.TeacherID,
+		RoomID:     t.RoomID,
+		DayOfWeek:  t.DayOfWeek,
+		StartTime:  t.StartTime.Format(timeLayout),
+		EndTime:    t.EndTime.Format(timeLayout),
+		LessonType: string(t.LessonType),
+		WeekParity: string(t.WeekParity),
+		ValidFrom:  t.ValidFrom.Format(dateLayout),
+		Status:     string(t.Status),
+	}
+	if t.ValidTo != nil {
+		formatted := t.ValidTo.Format(dateLayout)
+		dto.ValidTo = &formatted
+	}
+	return dto
+}
+
+type scheduleTemplateWriteRequest struct {
+	GroupID    string  `json:"group_id"`
+	SubjectID  string  `json:"subject_id"`
+	TeacherID  string  `json:"teacher_id"`
+	RoomID     string  `json:"room_id"`
+	DayOfWeek  int     `json:"day_of_week"`
+	StartTime  string  `json:"start_time"`
+	EndTime    string  `json:"end_time"`
+	LessonType string  `json:"lesson_type"`
+	WeekParity string  `json:"week_parity"`
+	ValidFrom  string  `json:"valid_from"`
+	ValidTo    *string `json:"valid_to"`
+	Status     string  `json:"status"`
+}
+
+func (req scheduleTemplateWriteRequest) toInput() (services.ScheduleTemplateInput, error) {
+	startTime, err := time.Parse(timeLayout, req.StartTime)
+	if err != nil {
+		return services.ScheduleTemplateInput{}, errors.New("invalid start_time format, expected HH:MM")
+	}
+	endTime, err := time.Parse(timeLayout, req.EndTime)
+	if err != nil {
+		return services.ScheduleTemplateInput{}, errors.New("invalid end_time format, expected HH:MM")
+	}
+	validFrom, err := time.Parse(dateLayout, req.ValidFrom)
+	if err != nil {
+		return services.ScheduleTemplateInput{}, errors.New("invalid valid_from format, expected YYYY-MM-DD")
+	}
+	var validTo *time.Time
+	if req.ValidTo != nil && *req.ValidTo != "" {
+		parsed, err := time.Parse(dateLayout, *req.ValidTo)
+		if err != nil {
+			return services.ScheduleTemplateInput{}, errors.New("invalid valid_to format, expected YYYY-MM-DD")
+		}
+		validTo = &parsed
+	}
+
+	lessonType := req.LessonType
+	if lessonType == "" {
+		lessonType = string(models.LessonTypeLecture)
+	}
+	weekParity := req.WeekParity
+	if weekParity == "" {
+		weekParity = string(models.WeekParityAll)
+	}
+	status := req.Status
+	if status == "" {
+		status = string(models.ScheduleTemplateStatusActive)
+	}
+
+	return services.ScheduleTemplateInput{
+		GroupID:    req.GroupID,
+		SubjectID:  req.SubjectID,
+		TeacherID:  req.TeacherID,
+		RoomID:     req.RoomID,
+		DayOfWeek:  req.DayOfWeek,
+		StartTime:  startTime,
+		EndTime:    endTime,
+		LessonType: models.LessonType(lessonType),
+		WeekParity: models.WeekParity(weekParity),
+		ValidFrom:  validFrom,
+		ValidTo:    validTo,
+		Status:     models.ScheduleTemplateStatus(status),
+	}, nil
+}
+
+// CreateTemplate обрабатывает POST /api/v1/schedules — создание шаблона
+// занятия. Admin only.
+func (h *SchedulesHandler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
+	var req scheduleTemplateWriteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.GroupID == "" || req.SubjectID == "" || req.TeacherID == "" || req.RoomID == "" {
+		writeError(w, http.StatusBadRequest, "group_id, subject_id, teacher_id and room_id are required")
+		return
+	}
+
+	input, err := req.toInput()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	template, err := h.admin.Create(r.Context(), input)
+	if err != nil {
+		handleScheduleAdminError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, scheduleTemplateDTOFromModel(template))
+}
+
+// UpdateTemplate обрабатывает PATCH /api/v1/schedules/{id} — редактирование
+// шаблона. Admin only.
+func (h *SchedulesHandler) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	var req scheduleTemplateWriteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	input, err := req.toInput()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	template, err := h.admin.Update(r.Context(), id, input)
+	if err != nil {
+		handleScheduleAdminError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, scheduleTemplateDTOFromModel(template))
+}
+
+// DeleteTemplate обрабатывает DELETE /api/v1/schedules/{id} — удаление
+// шаблона. Admin only.
+func (h *SchedulesHandler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if err := h.admin.Delete(r.Context(), id); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func handleScheduleAdminError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, repositories.ErrNotFound):
+		writeError(w, http.StatusNotFound, "schedule template not found")
+	case errors.Is(err, services.ErrScheduleConflict):
+		writeError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, services.ErrInvalidDateRange):
+		writeError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, services.ErrScheduleTemplateValidation):
+		writeError(w, http.StatusBadRequest, err.Error())
+	default:
+		writeError(w, http.StatusInternalServerError, "internal server error")
+	}
 }

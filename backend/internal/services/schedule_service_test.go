@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ type fakeScheduleTemplateRepository struct {
 	byID      map[string]*models.ScheduleTemplate
 	byGroup   map[string][]*models.ScheduleTemplate
 	byTeacher map[string][]*models.ScheduleTemplate
+	byRoom    map[string][]*models.ScheduleTemplate
 }
 
 func newFakeScheduleTemplateRepository() *fakeScheduleTemplateRepository {
@@ -21,6 +23,7 @@ func newFakeScheduleTemplateRepository() *fakeScheduleTemplateRepository {
 		byID:      make(map[string]*models.ScheduleTemplate),
 		byGroup:   make(map[string][]*models.ScheduleTemplate),
 		byTeacher: make(map[string][]*models.ScheduleTemplate),
+		byRoom:    make(map[string][]*models.ScheduleTemplate),
 	}
 }
 
@@ -28,6 +31,7 @@ func (f *fakeScheduleTemplateRepository) add(t *models.ScheduleTemplate) {
 	f.byID[t.ID] = t
 	f.byGroup[t.GroupID] = append(f.byGroup[t.GroupID], t)
 	f.byTeacher[t.TeacherID] = append(f.byTeacher[t.TeacherID], t)
+	f.byRoom[t.RoomID] = append(f.byRoom[t.RoomID], t)
 }
 
 func (f *fakeScheduleTemplateRepository) FindByID(_ context.Context, id string) (*models.ScheduleTemplate, error) {
@@ -46,14 +50,35 @@ func (f *fakeScheduleTemplateRepository) ListByTeacher(_ context.Context, teache
 	return f.byTeacher[teacherID], nil
 }
 
+func (f *fakeScheduleTemplateRepository) ListByRoom(_ context.Context, roomID string) ([]*models.ScheduleTemplate, error) {
+	return f.byRoom[roomID], nil
+}
+
 func (f *fakeScheduleTemplateRepository) Create(_ context.Context, t *models.ScheduleTemplate) (string, error) {
+	if t.ID == "" {
+		t.ID = fmt.Sprintf("tpl-generated-%d", len(f.byID)+1)
+	}
 	f.add(t)
 	return t.ID, nil
 }
 
 func (f *fakeScheduleTemplateRepository) Update(_ context.Context, t *models.ScheduleTemplate) error {
 	f.byID[t.ID] = t
+	// Перестраиваем вторичные индексы, чтобы последующие проверки конфликтов
+	// (ListByTeacher/ListByRoom) видели обновлённые данные шаблона.
+	f.rebuildIndexes()
 	return nil
+}
+
+func (f *fakeScheduleTemplateRepository) rebuildIndexes() {
+	f.byGroup = make(map[string][]*models.ScheduleTemplate)
+	f.byTeacher = make(map[string][]*models.ScheduleTemplate)
+	f.byRoom = make(map[string][]*models.ScheduleTemplate)
+	for _, t := range f.byID {
+		f.byGroup[t.GroupID] = append(f.byGroup[t.GroupID], t)
+		f.byTeacher[t.TeacherID] = append(f.byTeacher[t.TeacherID], t)
+		f.byRoom[t.RoomID] = append(f.byRoom[t.RoomID], t)
+	}
 }
 
 func (f *fakeScheduleTemplateRepository) SoftDelete(_ context.Context, id string) error {

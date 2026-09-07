@@ -78,6 +78,14 @@ func RoleFromContext(ctx context.Context) (models.RoleKey, bool) {
 	return v, ok
 }
 
+// ContextWithUser — тестовый хелпер, эмулирующий результат прохождения
+// middleware Auth: помещает userID и роль в контекст без реального JWT.
+// Используется только в unit-тестах хендлеров.
+func ContextWithUser(ctx context.Context, userID string, role models.RoleKey) context.Context {
+	ctx = context.WithValue(ctx, userIDContextKey, userID)
+	return context.WithValue(ctx, userRoleContextKey, role)
+}
+
 func writeUnauthorized(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)

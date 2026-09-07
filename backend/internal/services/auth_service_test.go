@@ -54,6 +54,42 @@ func (f *fakeUserRepository) UpdateLastLogin(_ context.Context, userID string) e
 	return nil
 }
 
+func (f *fakeUserRepository) List(_ context.Context, filter repositories.UserListFilter) ([]*models.User, error) {
+	var result []*models.User
+	for _, u := range f.byUsername {
+		if filter.RoleKey != nil && u.RoleKey != *filter.RoleKey {
+			continue
+		}
+		result = append(result, u)
+	}
+	return result, nil
+}
+
+func (f *fakeUserRepository) Create(_ context.Context, u *models.User) (string, error) {
+	if u.ID == "" {
+		u.ID = "generated-" + u.Username
+	}
+	f.add(u)
+	return u.ID, nil
+}
+
+func (f *fakeUserRepository) Update(_ context.Context, u *models.User) error {
+	f.add(u)
+	return nil
+}
+
+func (f *fakeUserRepository) SoftDelete(_ context.Context, id string) error {
+	if u, ok := f.byID[id]; ok {
+		u.IsActive = false
+	}
+	return nil
+}
+
+func (f *fakeUserRepository) ExistsByUsername(_ context.Context, username string) (bool, error) {
+	_, ok := f.byUsername[username]
+	return ok, nil
+}
+
 // fakeRefreshTokenRepository — тестовая заглушка RefreshTokenRepository.
 type fakeRefreshTokenRepository struct {
 	tokens map[string]refreshTokenRecord

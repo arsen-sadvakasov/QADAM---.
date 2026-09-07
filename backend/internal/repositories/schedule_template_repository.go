@@ -14,6 +14,7 @@ type ScheduleTemplateRepository interface {
 	FindByID(ctx context.Context, id string) (*models.ScheduleTemplate, error)
 	ListByGroup(ctx context.Context, groupID string) ([]*models.ScheduleTemplate, error)
 	ListByTeacher(ctx context.Context, teacherID string) ([]*models.ScheduleTemplate, error)
+	ListByRoom(ctx context.Context, roomID string) ([]*models.ScheduleTemplate, error)
 	Create(ctx context.Context, t *models.ScheduleTemplate) (string, error)
 	Update(ctx context.Context, t *models.ScheduleTemplate) error
 	SoftDelete(ctx context.Context, id string) error
@@ -93,6 +94,20 @@ func (r *pgScheduleTemplateRepository) ListByTeacher(ctx context.Context, teache
 		 WHERE st.teacher_id = $1 AND st.deleted_at IS NULL AND st.status = 'active'
 		 ORDER BY st.day_of_week, st.start_time`,
 		teacherID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return collectScheduleTemplates(rows)
+}
+
+func (r *pgScheduleTemplateRepository) ListByRoom(ctx context.Context, roomID string) ([]*models.ScheduleTemplate, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+scheduleTemplateSelectColumns+scheduleTemplateJoins+`
+		 WHERE st.room_id = $1 AND st.deleted_at IS NULL AND st.status = 'active'
+		 ORDER BY st.day_of_week, st.start_time`,
+		roomID,
 	)
 	if err != nil {
 		return nil, err

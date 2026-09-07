@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,14 +15,21 @@ import (
 	"github.com/qadam/backend/internal/services"
 )
 
-// fakeScheduleTemplateRepository — минимальная заглушка для HTTP-тестов
-// хендлеров расписания (изолирована от services-пакета, т.к. живёт в
-// другом Go-пакете).
+// fakeScheduleTemplateRepository — заглушка для HTTP-тестов хендлеров
+// расписания (изолирована от services-пакета, т.к. живёт в другом Go-пакете).
+// Поддерживает реальное создание/обновление в памяти, чтобы можно было
+// проверить CRUD-хендлеры и проверку конфликтов (Phase 5).
 type fakeScheduleTemplateRepository struct {
+	byID    map[string]*models.ScheduleTemplate
 	byGroup map[string][]*models.ScheduleTemplate
 }
 
-func (f *fakeScheduleTemplateRepository) FindByID(_ context.Context, _ string) (*models.ScheduleTemplate, error) {
+func (f *fakeScheduleTemplateRepository) FindByID(_ context.Context, id string) (*models.ScheduleTemplate, error) {
+	if f.byID != nil {
+		if t, ok := f.byID[id]; ok {
+			return t, nil
+		}
+	}
 	return nil, repositories.ErrNotFound
 }
 
@@ -28,19 +37,47 @@ func (f *fakeScheduleTemplateRepository) ListByGroup(_ context.Context, groupID 
 	return f.byGroup[groupID], nil
 }
 
-func (f *fakeScheduleTemplateRepository) ListByTeacher(_ context.Context, _ string) ([]*models.ScheduleTemplate, error) {
-	return nil, nil
+func (f *fakeScheduleTemplateRepository) ListByTeacher(_ context.Context, teacherID string) ([]*models.ScheduleTemplate, error) {
+	var result []*models.ScheduleTemplate
+	for _, t := range f.byID {
+		if t.TeacherID == teacherID {
+			result = append(result, t)
+		}
+	}
+	return result, nil
+}
+
+func (f *fakeScheduleTemplateRepository) ListByRoom(_ context.Context, roomID string) ([]*models.ScheduleTemplate, error) {
+	var result []*models.ScheduleTemplate
+	for _, t := range f.byID {
+		if t.RoomID == roomID {
+			result = append(result, t)
+		}
+	}
+	return result, nil
 }
 
 func (f *fakeScheduleTemplateRepository) Create(_ context.Context, t *models.ScheduleTemplate) (string, error) {
+	if f.byID == nil {
+		f.byID = make(map[string]*models.ScheduleTemplate)
+	}
+	if t.ID == "" {
+		t.ID = fmt.Sprintf("tpl-%d", len(f.byID)+1)
+	}
+	f.byID[t.ID] = t
 	return t.ID, nil
 }
 
-func (f *fakeScheduleTemplateRepository) Update(_ context.Context, _ *models.ScheduleTemplate) error {
+func (f *fakeScheduleTemplateRepository) Update(_ context.Context, t *models.ScheduleTemplate) error {
+	if f.byID == nil {
+		f.byID = make(map[string]*models.ScheduleTemplate)
+	}
+	f.byID[t.ID] = t
 	return nil
 }
 
-func (f *fakeScheduleTemplateRepository) SoftDelete(_ context.Context, _ string) error {
+func (f *fakeScheduleTemplateRepository) SoftDelete(_ context.Context, id string) error {
+	delete(f.byID, id)
 	return nil
 }
 
@@ -71,7 +108,7 @@ func newTestSchedulesHandler() *SchedulesHandler {
 			},
 		},
 	}
-	return NewSchedulesHandler(services.NewScheduleService(repo))
+	return NewSchedulesHandler(services.NewScheduleService(repo), services.NewScheduleAdminService(repo))
 }
 
 func TestGetSchedule_MissingFilters(t *testing.T) {
@@ -162,5 +199,98 @@ func TestGetLessonDetails_NotFound(t *testing.T) {
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", rec.Code)
+	}
+}
+
+func validScheduleTemplateBody() []byte {
+	body, _ := json.Marshal(map[string]any{
+		"group_id":    "group-1",
+		"subject_id":  "subject-1",
+		"teacher_id":  "teacher-1",
+		"room_id":     "room-1",
+		"day_of_week": 1,
+		"start_time":  "09:00",
+		"end_time":    "10:30",
+		"valid_from":  "2024-01-01",
+	})
+	return body
+}
+
+func TestCreateTemplate_Success(t *testing.T) {
+	h := newTestSchedulesHandler()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(validScheduleTemplateBody()))
+	rec := httptest.NewRecorder()
+
+	h.CreateTemplate(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCreateTemplate_MissingFields(t *testing.T) {
+	h := newTestSchedulesHandler()
+	body, _ := json.Marshal(map[string]any{"group_id": "group-1"})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	h.CreateTemplate(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestCreateTemplate_Conflict(t *testing.T) {
+	h := newTestSchedulesHandler()
+
+	first := httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(validScheduleTemplateBody()))
+	firstRec := httptest.NewRecorder()
+	h.CreateTemplate(firstRec, first)
+	if firstRec.Code != http.StatusCreated {
+		t.Fatalf("expected first create to succeed, got %d: %s", firstRec.Code, firstRec.Body.String())
+	}
+
+	// Same teacher/room/day/time -> should conflict.
+	second := httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(validScheduleTemplateBody()))
+	secondRec := httptest.NewRecorder()
+	h.CreateTemplate(secondRec, second)
+
+	if secondRec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", secondRec.Code, secondRec.Body.String())
+	}
+}
+
+func TestUpdateTemplate_NotFound(t *testing.T) {
+	h := newTestSchedulesHandler()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/schedules/missing", bytes.NewReader(validScheduleTemplateBody()))
+	req.SetPathValue("id", "missing")
+	rec := httptest.NewRecorder()
+
+	h.UpdateTemplate(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDeleteTemplate_Success(t *testing.T) {
+	h := newTestSchedulesHandler()
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(validScheduleTemplateBody()))
+	createRec := httptest.NewRecorder()
+	h.CreateTemplate(createRec, createReq)
+	var created scheduleTemplateDTO
+	if err := json.NewDecoder(createRec.Body).Decode(&created); err != nil {
+		t.Fatalf("failed to decode created template: %v", err)
+	}
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/v1/schedules/"+created.ID, nil)
+	deleteReq.SetPathValue("id", created.ID)
+	deleteRec := httptest.NewRecorder()
+	h.DeleteTemplate(deleteRec, deleteReq)
+
+	if deleteRec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", deleteRec.Code)
 	}
 }
