@@ -11,7 +11,8 @@ type Config struct {
 	AppEnv string // development | staging | production
 	Port   string
 
-	DatabaseURL string
+	DatabaseURL    string
+	MigrationsPath string
 
 	JWTAccessSecret  string
 	JWTRefreshSecret string
@@ -32,7 +33,8 @@ func Load() Config {
 		AppEnv: getEnv("APP_ENV", "development"),
 		Port:   getEnv("PORT", "8080"),
 
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://qadam:qadam@localhost:5432/qadam?sslmode=disable"),
+		DatabaseURL:    getEnv("DATABASE_URL", "postgres://qadam:qadam@localhost:5432/qadam?sslmode=disable"),
+		MigrationsPath: getEnv("MIGRATIONS_PATH", "migrations"),
 
 		JWTAccessSecret:  getEnv("JWT_ACCESS_SECRET", "dev-access-secret-change-me"),
 		JWTRefreshSecret: getEnv("JWT_REFRESH_SECRET", "dev-refresh-secret-change-me"),

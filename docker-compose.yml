@@ -57,6 +57,7 @@ services:
       APP_ENV: development
       PORT: 8080
       DATABASE_URL: postgres://${POSTGRES_USER:-qadam}:${POSTGRES_PASSWORD:-qadam}@postgres:5432/${POSTGRES_DB:-qadam}?sslmode=disable
+      MIGRATIONS_PATH: migrations
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-change-me}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}
       MINIO_ENDPOINT: minio:9000
