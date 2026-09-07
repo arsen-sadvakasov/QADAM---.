@@ -70,6 +70,11 @@ func main() {
 	studentRepo := repositories.NewStudentRepository(pool)
 	curatorService := services.NewCuratorService(studentRepo, groupRepo)
 
+	// Phase 11 — Search: глобальный поиск по ключевым полям с учётом прав
+	// (ILIKE/pg_trgm, раздел 25 спецификации).
+	searchRepo := repositories.NewSearchRepository(pool)
+	searchService := services.NewSearchService(searchRepo)
+
 	// Phase 6 — Schedule Changes (Замены): точечные замены/отмены/переносы
 	// занятий на конкретную дату, накладываемые поверх шаблона (раздел 20).
 	scheduleChangeService := services.NewScheduleChangeService(scheduleChangeRepo, scheduleTemplateRepo, notificationService)
@@ -93,6 +98,7 @@ func main() {
 	teachersHandler := handlers.NewTeachersHandler(teacherAdminService)
 	curatorsHandler := handlers.NewCuratorsHandler(userAdminService)
 	studentsHandler := handlers.NewStudentsHandler(curatorService)
+	searchHandler := handlers.NewSearchHandler(searchService)
 	scheduleChangesHandler := handlers.NewScheduleChangesHandler(scheduleChangeService)
 	materialsHandler := handlers.NewMaterialsHandler(materialService)
 	notificationsHandler := handlers.NewNotificationsHandler(notificationService)
@@ -197,6 +203,11 @@ func main() {
 	mux.Handle("POST /api/v1/students", authMiddleware(adminOrCurator(http.HandlerFunc(studentsHandler.Create))))
 	mux.Handle("PATCH /api/v1/students/{id}", authMiddleware(adminOrCurator(http.HandlerFunc(studentsHandler.Update))))
 	mux.Handle("DELETE /api/v1/students/{id}", authMiddleware(adminOrCurator(http.HandlerFunc(studentsHandler.Delete))))
+
+	// --- Search (Phase 11) ---
+	// Глобальный поиск: все авторизованные; набор типов зависит от роли
+	// (студент — только группы/предметы/кабинеты, без людей).
+	mux.Handle("GET /api/v1/search", authMiddleware(http.HandlerFunc(searchHandler.Search)))
 
 	var h http.Handler = mux
 	h = middleware.Logging(h)
