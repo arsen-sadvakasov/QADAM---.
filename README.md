@@ -67,4 +67,6 @@ npm run dev
 | Phase 10 — Session | ❌ Исключён из роадмапа (решение пользователя) |
 | Phase 11 — Search | ✅ Готово |
 | Phase 12 — Localization | ✅ Готово |
-| Phase 13–16 | Ожидают |
+| Phase 13 — Mobile Polish / PWA | ✅ Готово |
+| Phase 13.5 — Frontend API Integration | ✅ Готово |
+| Phase 14–16 | Ожидают |

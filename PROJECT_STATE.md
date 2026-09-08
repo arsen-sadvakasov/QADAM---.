@@ -25,7 +25,9 @@ phase-7-materials                    = 440395b, закоммичено и зап
 phase-8-notifications               = adf6046, закоммичено и запушено
 phase-9-curator-module              = 2faf7bd, закоммичено и запушено
 phase-11-search                      = cfe2a06, закоммичено и запушено
-phase-12-localization (HEAD)        = код готов, ожидает коммита
+phase-12-localization                = 1397274, закоммичено и запушено
+phase-13-mobile-pwa                  = код готов, ожидает коммита вместе с Phase 13.5
+phase-13-5-frontend-api (HEAD)     = код готов, ожидает коммита
 ```
 
 ⚠️ **Важно:** ветки `dev` и `main` по-прежнему находятся на первом коммите. Согласно договорённости, слияние в `dev` происходит **после завершения всех этапов** — это нормальное состояние, не ошибка.
@@ -40,7 +42,11 @@ phase-12-localization (HEAD)        = код готов, ожидает комм
 
 **Статус Phase 11 (2026-09-08):** код закоммичен (`cfe2a06`) и запушен в `origin/phase-11-search`. Этап закрыт.
 
-**Статус Phase 12 (2026-09-08):** код Phase 12 (Localization) реализован в рабочей копии ветки `phase-12-localization`, все проверки пройдены (`go build`, `go vet`, `go test ./...` — зелёные), ожидает коммита и push.
+**Статус Phase 12 (2026-09-08):** код закоммичен (`1397274`) и запушен в `origin/phase-12-localization`. Этап закрыт.
+
+**Статус Phase 13.5 (2026-09-08):** интеграция фронтенда с API реализована в рабочей копии ветки `phase-13-5-frontend-api`, сборка и линт зелёные (frontend build + lint, backend build + vet + test), ожидает коммита и push.
+
+**Статус Phase 13 (2026-09-08):** код Phase 13 (Mobile Polish / PWA) реализован, сборка (`npm run build`) и линт зелёные, ожидает коммита и push.
 
 ---
 
@@ -59,21 +65,27 @@ phase-12-localization (HEAD)        = код готов, ожидает комм
 | 9 | Curator Module | ✅ закоммичен, запушен (`phase-9-curator-module`, `2faf7bd`) | ✅ реализован |
 | ~~10~~ | ~~Session (Сессия)~~ | ❌ исключён из роадмапа (решение пользователя 2026-09-08: экзамены/сессия пока не нужны сайту) | — |
 | 11 | Search | ✅ закоммичен, запушен (`phase-11-search`, `cfe2a06`) | ✅ реализован |
-| 12 | Localization | 🟡 код готов, не закоммичен (`phase-12-localization`) | ✅ реализован |
-| 13 | Mobile Polish / PWA | ⬜ не начат | ⬜ нет кода |
+| 12 | Localization | ✅ закоммичен, запушен (`phase-12-localization`, `1397274`) | ✅ реализован |
+| 13 | Mobile Polish / PWA | 🟡 код готов, не закоммичен (`phase-13-mobile-pwa`) | ✅ реализован (базовый каркас UI) |
+| 13.5 | Frontend API Integration | 🟡 код готов, не закоммичен (`phase-13-5-frontend-api`) | ✅ реализован (логин, расписание, уведомления) |
 | 14 | Security Hardening | ⬜ не начат | ⬜ нет кода |
 | 15 | Testing (полное покрытие) | ⬜ не начат как отдельный этап (частичное покрытие тестами уже есть внутри Phase 2 и 4, см. ниже) | 🟡 частично, только auth + schedule |
 | 16 | Deployment | ⬜ не начат | ⬜ нет кода |
 
-**Текущий этап: Phase 12 — Localization**, статус 🟡 **код реализован и протестирован локально** (build + vet + все unit-тесты зелёные), ждёт коммита и push.
+**Текущий этап: Phase 13.5 — Frontend API Integration**, статус 🟡 **код реализован**, все проверки зелёные, ждёт коммита и push.
 
-Реализовано в Phase 12 (backend-часть; UI-хук useTranslation — на этапе фронтенда):
-- Пакет `internal/locales`: словари переводов kz/ru/en (JSON, встроены через go:embed), плоские ключи "schedule.today" (иерархические JSON разворачиваются в карту), fallback на русский.
-- API `locales.Normalize` (неизвестный язык → fallback) и `locales.Parse` (строгая валидация пользовательского ввода).
-- Словари покрывают: common, auth, schedule, notifications, materials (с категориями), profile; тест гарантирует одинаковый набор ключей во всех трёх языках.
-- HTTP-эндпоинты: `GET /api/v1/locales/{lang}` — словарь для языка (fallback, не ошибка); `GET /api/v1/users/me/language` — текущий язык; `PATCH /api/v1/users/me/language` — смена своего языка.
-- Валидация языка в `UserAdminService`: Create и Update принимают только kz/ru/en (`ErrUnknownLanguage` → 400); ранее язык создавался без валидации.
-- Тесты: locales (normalize, parse, flatten, одинаковые ключи всех языков, translate с fallback), хендлеры (словарь, fallback, смена языка, невалидный язык).
+Реализовано в Phase 13.5 (внеочередный этап по решению пользователя — связать фронтенд с API):
+- `src/api/client.ts`: fetch-клиент с JWT access-токеном в памяти (не localStorage — XSS-безопасность, раздел 28), авто-refresh при 401 через httpOnly-cookie (одна параллельная попытка на все запросы), единая обработка ошибок (ApiError).
+- `src/api/auth.ts`, `src/api/schedule.ts`: логин/выход/me, расписание, уведомления (список + mark-read), группы.
+- `src/hooks`: AuthProvider/useAuth (восстановление сессии при загрузке через refresh-cookie), useSchedule (react-query, кэш 60с), useNotifications (unread_count для бейджа).
+- `LoginPage`: форма входа с ошибками (401 — неверные данные, 429 — rate limit).
+- `ProtectedRoute`: все основные маршруты защищены; пока сессия проверяется — загрузка.
+- `SchedulePage`: выбор группы → расписание на неделю (пн–вс), группировка по датам, сортировка по времени; замены уже применены backend'ом.
+- `NotificationsPage`: список с приоритетами, отметка «прочитано», бейдж непрочитанных в навигации (десктоп и мобильная таб-панель).
+- `ProfilePage`: данные пользователя (роль, язык, тема) + выход.
+- Backend: `middleware.CORS` (strict whitelist, credentials; в dev — localhost:5173); Vite dev-proxy `/api` → `:8080` (same-origin ⇒ SameSite=strict refresh-cookie работает без CORS).
+- Проверки: frontend `npm run build` + `npm run lint` (0 warnings/errors); backend `go vet` + `go build` + `go test ./...` — зелёные.
+- Для живого просмотра: поднять БД (`docker compose up postgres minio`), запустить backend и `cd frontend && npm run dev`; пользователи создаются через `POST /api/v1/users` (Admin) — см. PROJECT_STATE проблему №4 про первый запуск миграций.
 
 ---
 
@@ -171,11 +183,11 @@ go test ./... -v     → 23 теста, все PASS (0 FAIL)
 
 ## 6. Точный следующий шаг
 
-1. Закоммитить и запушить Phase 12 в `phase-12-localization` (по команде пользователя).
-2. Приступить к Phase 13 (Mobile Polish / PWA): манифест, service worker, адаптивная вёрстка — первый этап, где появляется фронтенд.
-3. Подключить MinIO-реализацию `FileStorage` (нужен доступ к сети для `go get github.com/minio/minio-go/v7`) — интерфейс уже готов, меняется только реализация.
-4. Рекомендуется отдельно при наличии Docker прогнать миграции `000001`–`000007` на реальной PostgreSQL.
-5. Рекомендуется решить проблему №7 (удалить неиспользуемое `JWTRefreshSecret` из конфига, либо задокументировать план использования).
+1. Закоммитить и запушить Phase 13 + 13.5 в `phase-13-5-frontend-api` (по команде пользователя).
+2. Первый живой запуск: Docker (postgres+minio) → миграции → создать первого admin'а через API → войти во фронтенд.
+3. Приступить к Phase 14 (Security Hardening): строгий CORS-whitelist (базис уже есть), security-заголовки, аудит логов.
+4. Подключить MinIO-реализацию `FileStorage` (нужен доступ к сети для `go get github.com/minio/minio-go/v7`).
+5. Профиль: подключить смену языка (`PATCH /users/me/language`) и темы к UI настроек.
 
 **Изменение плана (2026-09-08):** Phase 10 (Session — экзамены/сессия) исключена из роадмапа по решению пользователя — функционал пока не нужен сайту. Таблица `exams` из миграций не создавалась, кода нет, поэтому исключение не требует отката. При необходимости этап можно вернуть позже.
 

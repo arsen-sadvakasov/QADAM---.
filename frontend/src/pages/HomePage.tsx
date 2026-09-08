@@ -1,21 +1,36 @@
-import { Logo } from '../components/Logo'
+import { useAuth } from '../hooks/useAuth'
+import { useNotifications } from '../hooks/useNotifications'
 
 /**
- * Временная стартовая страница проекта QADAM.
- *
- * Подтверждает, что Phase 1 (Project Setup) настроен корректно:
- * React + TypeScript + Tailwind + design-токены применяются.
- * Будет заменена реальным Dashboard в последующих фазах (расписание,
- * уведомления, профиль).
+ * Домашняя страница (Dashboard, Phase 13.5): приветствие + счётчик
+ * непрочитанных. Содержимое будет дополняться: сегодняшние занятия и т.д.
  */
 export function HomePage() {
+  const { user } = useAuth()
+  const { unreadCount } = useNotifications()
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4 text-center">
-      <Logo className="text-4xl" />
-      <p className="max-w-md text-muted">
-        Платформа управления учебным процессом. Разработка ведётся поэтапно —
-        Phase 1: Project Setup завершён.
-      </p>
-    </main>
+    <section className="flex flex-col gap-4">
+      <h1 className="text-lg font-semibold text-text">
+        {user ? `Здравствуйте, ${user.full_name}!` : 'Здравствуйте!'}
+      </h1>
+
+      {unreadCount > 0 && (
+        <a
+          href="/notifications"
+          className="rounded-lg border border-primary bg-primary/10 p-4 text-sm text-primary"
+        >
+          У вас {unreadCount} непрочитанных уведомлений — открыть
+        </a>
+      )}
+
+      <div className="rounded-lg border border-surface bg-surface p-5 text-sm text-muted">
+        <p className="font-medium text-text">QADAM — учебная платформа</p>
+        <p className="mt-1">
+          Расписание, материалы и уведомления колледжа. Приложение можно установить на
+          телефон: меню браузера → «Установить».
+        </p>
+      </div>
+    </section>
   )
 }
