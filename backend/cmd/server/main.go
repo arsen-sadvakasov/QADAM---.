@@ -99,6 +99,7 @@ func main() {
 	curatorsHandler := handlers.NewCuratorsHandler(userAdminService)
 	studentsHandler := handlers.NewStudentsHandler(curatorService)
 	searchHandler := handlers.NewSearchHandler(searchService)
+	localesHandler := handlers.NewLocalesHandler(userAdminService, userRepo)
 	scheduleChangesHandler := handlers.NewScheduleChangesHandler(scheduleChangeService)
 	materialsHandler := handlers.NewMaterialsHandler(materialService)
 	notificationsHandler := handlers.NewNotificationsHandler(notificationService)
@@ -208,6 +209,13 @@ func main() {
 	// Глобальный поиск: все авторизованные; набор типов зависит от роли
 	// (студент — только группы/предметы/кабинеты, без людей).
 	mux.Handle("GET /api/v1/search", authMiddleware(http.HandlerFunc(searchHandler.Search)))
+
+	// --- Locales (Phase 12) ---
+	// Словарь переводов — по любому языку (fallback на русский);
+	// смена языка — самим пользователем (раздел 26 спецификации).
+	mux.Handle("GET /api/v1/locales/{lang}", authMiddleware(http.HandlerFunc(localesHandler.Get)))
+	mux.Handle("GET /api/v1/users/me/language", authMiddleware(http.HandlerFunc(localesHandler.MyLanguage)))
+	mux.Handle("PATCH /api/v1/users/me/language", authMiddleware(http.HandlerFunc(localesHandler.ChangeMyLanguage)))
 
 	var h http.Handler = mux
 	h = middleware.Logging(h)

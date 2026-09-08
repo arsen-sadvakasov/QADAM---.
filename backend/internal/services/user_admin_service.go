@@ -4,9 +4,14 @@ import (
 	"context"
 	"errors"
 
+	"github.com/qadam/backend/internal/locales"
 	"github.com/qadam/backend/internal/models"
 	"github.com/qadam/backend/internal/repositories"
 )
+
+// ErrUnknownLanguage возвращается при передаче неподдерживаемого кода
+// языка (поддерживаются kz/ru/en — раздел 26 спецификации).
+var ErrUnknownLanguage = errors.New("unsupported language (supported: kz, ru, en)")
 
 // Ошибки, возвращаемые UserAdminService — безопасны для отображения
 // администратору в сообщении об ошибке.
@@ -37,6 +42,7 @@ type UpdateUserInput struct {
 	Email    *string
 	Phone    *string
 	IsActive *bool
+	Language *string
 }
 
 // UserAdminService реализует бизнес-логику CRUD пользователей для Admin
@@ -87,7 +93,9 @@ func (s *UserAdminService) Create(ctx context.Context, in CreateUserInput) (*mod
 
 	language := in.Language
 	if language == "" {
-		language = "ru"
+		language = string(locales.DefaultLanguage)
+	} else if _, err := locales.Parse(language); err != nil {
+		return nil, ErrUnknownLanguage
 	}
 	theme := in.Theme
 	if theme == "" {
@@ -134,6 +142,12 @@ func (s *UserAdminService) Update(ctx context.Context, id string, in UpdateUserI
 	}
 	if in.IsActive != nil {
 		user.IsActive = *in.IsActive
+	}
+	if in.Language != nil {
+		if _, err := locales.Parse(*in.Language); err != nil {
+			return nil, ErrUnknownLanguage
+		}
+		user.Language = *in.Language
 	}
 	if in.Role != nil {
 		role, err := s.roles.FindByKey(ctx, *in.Role)

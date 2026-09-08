@@ -1,0 +1,63 @@
+{
+  "app": {
+    "name": "QADAM"
+  },
+  "common": {
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "create": "Создать",
+    "search": "Поиск",
+    "loading": "Загрузка…",
+    "not_found": "Не найдено",
+    "error": "Ошибка",
+    "confirm": "Подтвердить"
+  },
+  "auth": {
+    "login": "Вход",
+    "logout": "Выход",
+    "username": "Логин",
+    "password": "Пароль",
+    "invalid_credentials": "Неверный логин или пароль"
+  },
+  "schedule": {
+    "today": "Сегодня",
+    "tomorrow": "Завтра",
+    "week": "Неделя",
+    "month": "Месяц",
+    "no_lessons": "Нет занятий",
+    "lesson": "Занятие",
+    "teacher": "Преподаватель",
+    "room": "Кабинет",
+    "group": "Группа",
+    "subject": "Предмет",
+    "cancelled": "Отменено",
+    "replaced": "Заменено",
+    "moved": "Перенесено"
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "empty_state": "Уведомлений нет",
+    "mark_read": "Отметить прочитанным",
+    "unread": "Непрочитанные"
+  },
+  "materials": {
+    "title": "Учебные материалы",
+    "empty_state": "Материалов нет",
+    "categories": {
+      "lecture": "Лекции",
+      "practice": "Практические",
+      "lab": "Лабораторные",
+      "extra": "Дополнительные"
+    },
+    "download": "Скачать"
+  },
+  "profile": {
+    "title": "Личный кабинет",
+    "language": "Язык",
+    "theme": "Тема",
+    "dark": "Тёмная",
+    "light": "Светлая"
+  }
+}

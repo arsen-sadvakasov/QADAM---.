@@ -66,4 +66,5 @@ npm run dev
 | Phase 9 — Curator Module | ✅ Готово |
 | Phase 10 — Session | ❌ Исключён из роадмапа (решение пользователя) |
 | Phase 11 — Search | ✅ Готово |
-| Phase 12–16 | Ожидают |
+| Phase 12 — Localization | ✅ Готово |
+| Phase 13–16 | Ожидают |

@@ -1,0 +1,63 @@
+{
+  "app": {
+    "name": "QADAM"
+  },
+  "common": {
+    "save": "Сақтау",
+    "cancel": "Болдырмау",
+    "delete": "Өшіру",
+    "edit": "Өңдеу",
+    "create": "Жасау",
+    "search": "Іздеу",
+    "loading": "Жүктелуде…",
+    "not_found": "Табылмады",
+    "error": "Қате",
+    "confirm": "Растау"
+  },
+  "auth": {
+    "login": "Кіру",
+    "logout": "Шығу",
+    "username": "Логин",
+    "password": "Құпиясөз",
+    "invalid_credentials": "Логин немесе құпиясөз дұрыс емес"
+  },
+  "schedule": {
+    "today": "Бүгін",
+    "tomorrow": "Ертең",
+    "week": "Апта",
+    "month": "Ай",
+    "no_lessons": "Сабақтар жоқ",
+    "lesson": "Сабақ",
+    "teacher": "Оқытушы",
+    "room": "Оқу бөлмесі",
+    "group": "Топ",
+    "subject": "Пән",
+    "cancelled": "Болдырылмаған",
+    "replaced": "Ауыстырылды",
+    "moved": "Көшірілді"
+  },
+  "notifications": {
+    "title": "Хабарландырулар",
+    "empty_state": "Хабарландырулар жоқ",
+    "mark_read": "Оқылды деп белгілеу",
+    "unread": "Оқылмаған"
+  },
+  "materials": {
+    "title": "Оқу материалдары",
+    "empty_state": "Материалдар жоқ",
+    "categories": {
+      "lecture": "Дәріс",
+      "practice": "Тәжірибе",
+      "lab": "Зертханалық",
+      "extra": "Қосымша"
+    },
+    "download": "Жүктеп алу"
+  },
+  "profile": {
+    "title": "Жеке кабинет",
+    "language": "Тіл",
+    "theme": "Тақырып",
+    "dark": "Қараңғы",
+    "light": "Жарық"
+  }
+}

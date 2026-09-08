@@ -1,0 +1,63 @@
+{
+  "app": {
+    "name": "QADAM"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "loading": "Loading…",
+    "not_found": "Not found",
+    "error": "Error",
+    "confirm": "Confirm"
+  },
+  "auth": {
+    "login": "Log in",
+    "logout": "Log out",
+    "username": "Username",
+    "password": "Password",
+    "invalid_credentials": "Invalid username or password"
+  },
+  "schedule": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "week": "Week",
+    "month": "Month",
+    "no_lessons": "No lessons",
+    "lesson": "Lesson",
+    "teacher": "Teacher",
+    "room": "Room",
+    "group": "Group",
+    "subject": "Subject",
+    "cancelled": "Cancelled",
+    "replaced": "Replaced",
+    "moved": "Moved"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty_state": "No notifications",
+    "mark_read": "Mark as read",
+    "unread": "Unread"
+  },
+  "materials": {
+    "title": "Study materials",
+    "empty_state": "No materials",
+    "categories": {
+      "lecture": "Lectures",
+      "practice": "Practice",
+      "lab": "Labs",
+      "extra": "Extra"
+    },
+    "download": "Download"
+  },
+  "profile": {
+    "title": "Profile",
+    "language": "Language",
+    "theme": "Theme",
+    "dark": "Dark",
+    "light": "Light"
+  }
+}

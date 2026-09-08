@@ -158,6 +158,7 @@ type updateUserRequest struct {
 	Email    *string `json:"email"`
 	Phone    *string `json:"phone"`
 	IsActive *bool   `json:"is_active"`
+	Language *string `json:"language"`
 }
 
 // Update обрабатывает PATCH /api/v1/users/{id} — редактирование. Admin only.
@@ -175,6 +176,7 @@ func (h *UsersHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Email:    req.Email,
 		Phone:    req.Phone,
 		IsActive: req.IsActive,
+		Language: req.Language,
 	}
 	if req.Role != nil {
 		role := models.RoleKey(*req.Role)
@@ -206,6 +208,8 @@ func handleUserAdminError(w http.ResponseWriter, err error) {
 	case errors.Is(err, services.ErrUsernameTaken):
 		writeError(w, http.StatusConflict, err.Error())
 	case errors.Is(err, services.ErrUnknownRole):
+		writeError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, services.ErrUnknownLanguage):
 		writeError(w, http.StatusBadRequest, err.Error())
 	default:
 		writeError(w, http.StatusInternalServerError, "internal server error")
