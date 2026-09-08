@@ -236,14 +236,11 @@ func main() {
 	// production (HTTPS). В dev HTTP без TLS, HSTS не добавляется.
 	h = middleware.SecurityHeaders(cfg.AppEnv == "production")(h)
 	// CORS для development: Vite (:5173) ходит на API (:8080) с credentials.
-	// В production фронтенд отдаётся nginx'ом с того же origin — CORS не нужен.
-	if cfg.AppEnv == "development" {
-		h = middleware.CORS(
-			"http://localhost:5173",
-			"http://127.0.0.1:5173",
-			"https://qadam-taupe.vercel.app",
-		)(h)
-	}
+	h = middleware.CORS(
+		"http://localhost:5173",
+		"http://127.0.0.1:5173",
+		"https://qadam-taupe.vercel.app",
+	)(h)
 
 	addr := ":" + cfg.Port
 	log.Printf("QADAM backend starting (env=%s) on %s", cfg.AppEnv, addr)
