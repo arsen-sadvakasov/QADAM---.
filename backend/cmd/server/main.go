@@ -43,7 +43,7 @@ func main() {
 	subjectRepo := repositories.NewSubjectRepository(pool)
 	roomRepo := repositories.NewRoomRepository(pool)
 	teacherRepo := repositories.NewTeacherRepository(pool)
-	_ = specialtyRepo                           // CRUD специальностей/курсов не входит в API Plan Phase 5 (только справочные данные)
+	_ = specialtyRepo // CRUD специальностей/курсов не входит в API Plan Phase 5 (только справочные данные)
 	_ = courseRepo
 
 	// Phase 4 — Schedule: вычисление расписания на день/неделю/месяц из
@@ -238,7 +238,11 @@ func main() {
 	// CORS для development: Vite (:5173) ходит на API (:8080) с credentials.
 	// В production фронтенд отдаётся nginx'ом с того же origin — CORS не нужен.
 	if cfg.AppEnv == "development" {
-		h = middleware.CORS("http://localhost:5173", "http://127.0.0.1:5173")(h)
+		h = middleware.CORS(
+			"http://localhost:5173",
+			"http://127.0.0.1:5173",
+			"https://qadam-taupe.vercel.app",
+		)(h)
 	}
 
 	addr := ":" + cfg.Port
