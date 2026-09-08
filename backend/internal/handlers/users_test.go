@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/qadam/backend/internal/middleware"
 	"github.com/qadam/backend/internal/models"
 	"github.com/qadam/backend/internal/repositories"
 	"github.com/qadam/backend/internal/services"
@@ -103,6 +104,7 @@ func TestUsersCreate_Success(t *testing.T) {
 		"role":      "student",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewReader(body))
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), "admin-1", models.RoleAdmin))
 	rec := httptest.NewRecorder()
 
 	h.Create(rec, req)
@@ -123,6 +125,7 @@ func TestUsersCreate_MissingFields(t *testing.T) {
 	h, _ := newTestUsersHandler()
 	body, _ := json.Marshal(map[string]string{"username": "onlyusername"})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewReader(body))
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), "admin-1", models.RoleAdmin))
 	rec := httptest.NewRecorder()
 
 	h.Create(rec, req)
@@ -143,6 +146,7 @@ func TestUsersCreate_DuplicateUsername(t *testing.T) {
 		"role":      "student",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewReader(body))
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), "admin-1", models.RoleAdmin))
 	rec := httptest.NewRecorder()
 
 	h.Create(rec, req)
@@ -157,6 +161,7 @@ func TestUsersUpdate_NotFound(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{"full_name": "Updated"})
 	req := httptest.NewRequest(http.MethodPatch, "/api/v1/users/does-not-exist", bytes.NewReader(body))
 	req.SetPathValue("id", "does-not-exist")
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), "admin-1", models.RoleAdmin))
 	rec := httptest.NewRecorder()
 
 	h.Update(rec, req)
@@ -172,6 +177,7 @@ func TestUsersBlock_Success(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/users/user-1", nil)
 	req.SetPathValue("id", "user-1")
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), "admin-1", models.RoleAdmin))
 	rec := httptest.NewRecorder()
 
 	h.Block(rec, req)
@@ -205,5 +211,44 @@ func TestUsersList_FiltersByRole(t *testing.T) {
 	}
 	if len(body.Users) != 1 || body.Users[0].Username != "u2" {
 		t.Fatalf("expected only teacher u2, got %+v", body.Users)
+	}
+}
+
+// Phase 14: server-side валидация username и пароля (раздел 28).
+func TestUsersCreate_InvalidUsername(t *testing.T) {
+	h, _ := newTestUsersHandler()
+	body, _ := json.Marshal(map[string]string{
+		"username":  "ab", // короче 3 символов
+		"password":  "secret123",
+		"full_name": "X",
+		"role":      "student",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewReader(body))
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), "admin-1", models.RoleAdmin))
+	rec := httptest.NewRecorder()
+
+	h.Create(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for short username, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUsersCreate_PasswordTooShort(t *testing.T) {
+	h, _ := newTestUsersHandler()
+	body, _ := json.Marshal(map[string]string{
+		"username":  "newstudent",
+		"password":  "1234567", // 7 символов < 8
+		"full_name": "X",
+		"role":      "student",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewReader(body))
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), "admin-1", models.RoleAdmin))
+	rec := httptest.NewRecorder()
+
+	h.Create(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for short password, got %d: %s", rec.Code, rec.Body.String())
 	}
 }

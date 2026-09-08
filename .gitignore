@@ -19,3 +19,7 @@ npm-debug.log*
 # IDE
 .idea/
 .vscode/
+
+# Локальные cookie-jar'ы от curl-тестов (могут содержать токены)
+cookies.txt
+*.cookiejar

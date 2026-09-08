@@ -59,7 +59,7 @@ func (h *LocalesHandler) ChangeMyLanguage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	user, err := h.userAdmin.Update(r.Context(), userID, services.UpdateUserInput{
+	user, err := h.userAdmin.Update(r.Context(), userID, userID, services.UpdateUserInput{
 		Language: &req.Language,
 	})
 	if err != nil {

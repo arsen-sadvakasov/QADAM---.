@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/qadam/backend/internal/middleware"
 	"github.com/qadam/backend/internal/models"
 	"github.com/qadam/backend/internal/repositories"
 	"github.com/qadam/backend/internal/services"
@@ -221,9 +222,15 @@ func validScheduleTemplateBody() []byte {
 	return body
 }
 
+// adminContext добавляет admin-пользователя в контекст запроса (для хендлеров,
+// читающих actorID через middleware, Phase 14).
+func adminContext(r *http.Request) *http.Request {
+	return r.WithContext(middleware.ContextWithUser(r.Context(), "admin-1", models.RoleAdmin))
+}
+
 func TestCreateTemplate_Success(t *testing.T) {
 	h := newTestSchedulesHandler()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(validScheduleTemplateBody()))
+	req := adminContext(httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(validScheduleTemplateBody())))
 	rec := httptest.NewRecorder()
 
 	h.CreateTemplate(rec, req)
@@ -236,7 +243,7 @@ func TestCreateTemplate_Success(t *testing.T) {
 func TestCreateTemplate_MissingFields(t *testing.T) {
 	h := newTestSchedulesHandler()
 	body, _ := json.Marshal(map[string]any{"group_id": "group-1"})
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(body))
+	req := adminContext(httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(body)))
 	rec := httptest.NewRecorder()
 
 	h.CreateTemplate(rec, req)
@@ -249,7 +256,7 @@ func TestCreateTemplate_MissingFields(t *testing.T) {
 func TestCreateTemplate_Conflict(t *testing.T) {
 	h := newTestSchedulesHandler()
 
-	first := httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(validScheduleTemplateBody()))
+	first := adminContext(httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(validScheduleTemplateBody())))
 	firstRec := httptest.NewRecorder()
 	h.CreateTemplate(firstRec, first)
 	if firstRec.Code != http.StatusCreated {
@@ -257,7 +264,7 @@ func TestCreateTemplate_Conflict(t *testing.T) {
 	}
 
 	// Same teacher/room/day/time -> should conflict.
-	second := httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(validScheduleTemplateBody()))
+	second := adminContext(httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(validScheduleTemplateBody())))
 	secondRec := httptest.NewRecorder()
 	h.CreateTemplate(secondRec, second)
 
@@ -268,7 +275,7 @@ func TestCreateTemplate_Conflict(t *testing.T) {
 
 func TestUpdateTemplate_NotFound(t *testing.T) {
 	h := newTestSchedulesHandler()
-	req := httptest.NewRequest(http.MethodPatch, "/api/v1/schedules/missing", bytes.NewReader(validScheduleTemplateBody()))
+	req := adminContext(httptest.NewRequest(http.MethodPatch, "/api/v1/schedules/missing", bytes.NewReader(validScheduleTemplateBody())))
 	req.SetPathValue("id", "missing")
 	rec := httptest.NewRecorder()
 
@@ -282,7 +289,7 @@ func TestUpdateTemplate_NotFound(t *testing.T) {
 func TestDeleteTemplate_Success(t *testing.T) {
 	h := newTestSchedulesHandler()
 
-	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(validScheduleTemplateBody()))
+	createReq := adminContext(httptest.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewReader(validScheduleTemplateBody())))
 	createRec := httptest.NewRecorder()
 	h.CreateTemplate(createRec, createReq)
 	var created scheduleTemplateDTO
@@ -290,7 +297,7 @@ func TestDeleteTemplate_Success(t *testing.T) {
 		t.Fatalf("failed to decode created template: %v", err)
 	}
 
-	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/v1/schedules/"+created.ID, nil)
+	deleteReq := adminContext(httptest.NewRequest(http.MethodDelete, "/api/v1/schedules/"+created.ID, nil))
 	deleteReq.SetPathValue("id", created.ID)
 	deleteRec := httptest.NewRecorder()
 	h.DeleteTemplate(deleteRec, deleteReq)

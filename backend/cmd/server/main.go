@@ -53,11 +53,18 @@ func main() {
 	scheduleChangeRepo := repositories.NewScheduleChangeRepository(pool)
 	scheduleService := services.NewScheduleService(scheduleTemplateRepo, scheduleChangeRepo)
 
+	// Phase 14 — Security Hardening: журнал аудита мутаций администраторов
+	// (раздел 29 спецификации). best-effort запись, чтение — Admin.
+	auditRepo := repositories.NewAuditLogRepository(pool)
+	auditService := services.NewAuditService(auditRepo)
+
 	// Phase 5 — Admin Panel (Core CRUD): пользователи, группы, кабинеты,
 	// предметы, преподаватели, кураторы, управление расписанием.
 	userAdminService := services.NewUserAdminService(userRepo, roleRepo)
+	userAdminService.SetAudit(auditService)
 	teacherAdminService := services.NewTeacherAdminService(userAdminService, teacherRepo)
 	scheduleAdminService := services.NewScheduleAdminService(scheduleTemplateRepo)
+	scheduleAdminService.SetAudit(auditService)
 
 	// Phase 8 — Notifications: уведомления о заменах расписания и новых
 	// материалах (раздел 19 спецификации), системные уведомления от Admin.
@@ -78,6 +85,7 @@ func main() {
 	// Phase 6 — Schedule Changes (Замены): точечные замены/отмены/переносы
 	// занятий на конкретную дату, накладываемые поверх шаблона (раздел 20).
 	scheduleChangeService := services.NewScheduleChangeService(scheduleChangeRepo, scheduleTemplateRepo, notificationService)
+	scheduleChangeService.SetAudit(auditService)
 
 	// Phase 7 — Materials: учебные материалы. Файловое хранилище — через
 	// абстракцию FileStorage (раздел 14): локальная ФС в разработке;
@@ -100,6 +108,7 @@ func main() {
 	studentsHandler := handlers.NewStudentsHandler(curatorService)
 	searchHandler := handlers.NewSearchHandler(searchService)
 	localesHandler := handlers.NewLocalesHandler(userAdminService, userRepo)
+	auditLogsHandler := handlers.NewAuditLogsHandler(auditService)
 	scheduleChangesHandler := handlers.NewScheduleChangesHandler(scheduleChangeService)
 	materialsHandler := handlers.NewMaterialsHandler(materialService)
 	notificationsHandler := handlers.NewNotificationsHandler(notificationService)
@@ -125,6 +134,10 @@ func main() {
 	mux.Handle("POST /api/v1/users", authMiddleware(adminOnly(http.HandlerFunc(usersHandler.Create))))
 	mux.Handle("PATCH /api/v1/users/{id}", authMiddleware(adminOnly(http.HandlerFunc(usersHandler.Update))))
 	mux.Handle("DELETE /api/v1/users/{id}", authMiddleware(adminOnly(http.HandlerFunc(usersHandler.Block))))
+
+	// --- Admin: audit logs (Phase 14, раздел 29) ---
+	// Только чтение, с фильтрами. Admin only.
+	mux.Handle("GET /api/v1/admin/audit-logs", authMiddleware(adminOnly(http.HandlerFunc(auditLogsHandler.List))))
 
 	// --- Schedules (Phase 4 read + Phase 5 admin CRUD) ---
 	mux.Handle("GET /api/v1/schedules", authMiddleware(http.HandlerFunc(schedulesHandler.GetSchedule)))
@@ -219,6 +232,9 @@ func main() {
 
 	var h http.Handler = mux
 	h = middleware.Logging(h)
+	// Phase 14 — Security Hardening: защитные заголовки; HSTS только в
+	// production (HTTPS). В dev HTTP без TLS, HSTS не добавляется.
+	h = middleware.SecurityHeaders(cfg.AppEnv == "production")(h)
 	// CORS для development: Vite (:5173) ходит на API (:8080) с credentials.
 	// В production фронтенд отдаётся nginx'ом с того же origin — CORS не нужен.
 	if cfg.AppEnv == "development" {

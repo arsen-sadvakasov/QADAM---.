@@ -125,6 +125,12 @@ type createUserRequest struct {
 
 // Create обрабатывает POST /api/v1/users — создание пользователя. Admin only.
 func (h *UsersHandler) Create(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
 	var req createUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -135,7 +141,7 @@ func (h *UsersHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userAdmin.Create(r.Context(), services.CreateUserInput{
+	user, err := h.userAdmin.Create(r.Context(), actorID, services.CreateUserInput{
 		Username: req.Username,
 		Password: req.Password,
 		FullName: req.FullName,
@@ -163,6 +169,11 @@ type updateUserRequest struct {
 
 // Update обрабатывает PATCH /api/v1/users/{id} — редактирование. Admin only.
 func (h *UsersHandler) Update(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	id := r.PathValue("id")
 
 	var req updateUserRequest
@@ -183,7 +194,7 @@ func (h *UsersHandler) Update(w http.ResponseWriter, r *http.Request) {
 		in.Role = &role
 	}
 
-	user, err := h.userAdmin.Update(r.Context(), id, in)
+	user, err := h.userAdmin.Update(r.Context(), actorID, id, in)
 	if err != nil {
 		handleUserAdminError(w, err)
 		return
@@ -193,8 +204,13 @@ func (h *UsersHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 // Block обрабатывает DELETE /api/v1/users/{id} — блокировка/soft-delete. Admin only.
 func (h *UsersHandler) Block(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	id := r.PathValue("id")
-	if err := h.userAdmin.Block(r.Context(), id); err != nil {
+	if err := h.userAdmin.Block(r.Context(), actorID, id); err != nil {
 		handleUserAdminError(w, err)
 		return
 	}
@@ -210,6 +226,9 @@ func handleUserAdminError(w http.ResponseWriter, err error) {
 	case errors.Is(err, services.ErrUnknownRole):
 		writeError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, services.ErrUnknownLanguage):
+		writeError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, services.ErrUsernameInvalid),
+		errors.Is(err, services.ErrPasswordTooShort):
 		writeError(w, http.StatusBadRequest, err.Error())
 	default:
 		writeError(w, http.StatusInternalServerError, "internal server error")

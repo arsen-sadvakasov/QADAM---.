@@ -27,7 +27,7 @@ func TestScheduleAdminService_Create_Success(t *testing.T) {
 	repo := newFakeScheduleTemplateRepository()
 	svc := NewScheduleAdminService(repo)
 
-	created, err := svc.Create(context.Background(), baseScheduleTemplateInput(t))
+	created, err := svc.Create(context.Background(), "admin-1", baseScheduleTemplateInput(t))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestScheduleAdminService_Create_InvalidDayOfWeek(t *testing.T) {
 	in := baseScheduleTemplateInput(t)
 	in.DayOfWeek = 8
 
-	_, err := svc.Create(context.Background(), in)
+	_, err := svc.Create(context.Background(), "admin-1", in)
 	if err == nil {
 		t.Fatal("expected error for invalid day_of_week")
 	}
@@ -56,7 +56,7 @@ func TestScheduleAdminService_Create_EndBeforeStart(t *testing.T) {
 	in := baseScheduleTemplateInput(t)
 	in.EndTime = mustParseClock(t, "08:00") // before start_time 09:00
 
-	_, err := svc.Create(context.Background(), in)
+	_, err := svc.Create(context.Background(), "admin-1", in)
 	if err == nil {
 		t.Fatal("expected error for end_time before start_time")
 	}
@@ -67,7 +67,7 @@ func TestScheduleAdminService_Create_TeacherConflict(t *testing.T) {
 	svc := NewScheduleAdminService(repo)
 
 	first := baseScheduleTemplateInput(t)
-	if _, err := svc.Create(context.Background(), first); err != nil {
+	if _, err := svc.Create(context.Background(), "admin-1", first); err != nil {
 		t.Fatalf("unexpected error creating first template: %v", err)
 	}
 
@@ -77,7 +77,7 @@ func TestScheduleAdminService_Create_TeacherConflict(t *testing.T) {
 	second.RoomID = "room-2"
 	second.StartTime = mustParseClock(t, "10:00") // overlaps 09:00-10:30
 
-	_, err := svc.Create(context.Background(), second)
+	_, err := svc.Create(context.Background(), "admin-1", second)
 	if err != ErrScheduleConflict {
 		t.Fatalf("expected ErrScheduleConflict, got %v", err)
 	}
@@ -88,7 +88,7 @@ func TestScheduleAdminService_Create_RoomConflict(t *testing.T) {
 	svc := NewScheduleAdminService(repo)
 
 	first := baseScheduleTemplateInput(t)
-	if _, err := svc.Create(context.Background(), first); err != nil {
+	if _, err := svc.Create(context.Background(), "admin-1", first); err != nil {
 		t.Fatalf("unexpected error creating first template: %v", err)
 	}
 
@@ -98,7 +98,7 @@ func TestScheduleAdminService_Create_RoomConflict(t *testing.T) {
 	second.TeacherID = "teacher-2"
 	second.StartTime = mustParseClock(t, "10:00")
 
-	_, err := svc.Create(context.Background(), second)
+	_, err := svc.Create(context.Background(), "admin-1", second)
 	if err != ErrScheduleConflict {
 		t.Fatalf("expected ErrScheduleConflict, got %v", err)
 	}
@@ -109,14 +109,14 @@ func TestScheduleAdminService_Create_NoConflict_DifferentDay(t *testing.T) {
 	svc := NewScheduleAdminService(repo)
 
 	first := baseScheduleTemplateInput(t)
-	if _, err := svc.Create(context.Background(), first); err != nil {
+	if _, err := svc.Create(context.Background(), "admin-1", first); err != nil {
 		t.Fatalf("unexpected error creating first template: %v", err)
 	}
 
 	second := baseScheduleTemplateInput(t)
 	second.DayOfWeek = 2 // Tuesday instead of Monday
 
-	if _, err := svc.Create(context.Background(), second); err != nil {
+	if _, err := svc.Create(context.Background(), "admin-1", second); err != nil {
 		t.Fatalf("expected no conflict for a different day, got %v", err)
 	}
 }
@@ -127,14 +127,14 @@ func TestScheduleAdminService_Create_NoConflict_NonOverlappingParity(t *testing.
 
 	first := baseScheduleTemplateInput(t)
 	first.WeekParity = models.WeekParityOdd
-	if _, err := svc.Create(context.Background(), first); err != nil {
+	if _, err := svc.Create(context.Background(), "admin-1", first); err != nil {
 		t.Fatalf("unexpected error creating first template: %v", err)
 	}
 
 	second := baseScheduleTemplateInput(t)
 	second.WeekParity = models.WeekParityEven
 
-	if _, err := svc.Create(context.Background(), second); err != nil {
+	if _, err := svc.Create(context.Background(), "admin-1", second); err != nil {
 		t.Fatalf("expected no conflict for non-overlapping week parity, got %v", err)
 	}
 }
@@ -144,7 +144,7 @@ func TestScheduleAdminService_Create_NoConflict_AdjacentTimes(t *testing.T) {
 	svc := NewScheduleAdminService(repo)
 
 	first := baseScheduleTemplateInput(t)
-	if _, err := svc.Create(context.Background(), first); err != nil {
+	if _, err := svc.Create(context.Background(), "admin-1", first); err != nil {
 		t.Fatalf("unexpected error creating first template: %v", err)
 	}
 
@@ -153,7 +153,7 @@ func TestScheduleAdminService_Create_NoConflict_AdjacentTimes(t *testing.T) {
 	second.StartTime = mustParseClock(t, "10:30")
 	second.EndTime = mustParseClock(t, "12:00")
 
-	if _, err := svc.Create(context.Background(), second); err != nil {
+	if _, err := svc.Create(context.Background(), "admin-1", second); err != nil {
 		t.Fatalf("expected no conflict for adjacent (non-overlapping) times, got %v", err)
 	}
 }
@@ -162,7 +162,7 @@ func TestScheduleAdminService_Update_ExcludesSelfFromConflictCheck(t *testing.T)
 	repo := newFakeScheduleTemplateRepository()
 	svc := NewScheduleAdminService(repo)
 
-	created, err := svc.Create(context.Background(), baseScheduleTemplateInput(t))
+	created, err := svc.Create(context.Background(), "admin-1", baseScheduleTemplateInput(t))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestScheduleAdminService_Update_ExcludesSelfFromConflictCheck(t *testing.T)
 	updateInput.StartTime = mustParseClock(t, "09:15")
 	updateInput.EndTime = mustParseClock(t, "10:45")
 
-	updated, err := svc.Update(context.Background(), created.ID, updateInput)
+	updated, err := svc.Update(context.Background(), "admin-1", created.ID, updateInput)
 	if err != nil {
 		t.Fatalf("unexpected error updating template: %v", err)
 	}
@@ -186,14 +186,14 @@ func TestScheduleAdminService_Update_ConflictsWithOtherTemplate(t *testing.T) {
 	repo := newFakeScheduleTemplateRepository()
 	svc := NewScheduleAdminService(repo)
 
-	first, err := svc.Create(context.Background(), baseScheduleTemplateInput(t))
+	first, err := svc.Create(context.Background(), "admin-1", baseScheduleTemplateInput(t))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	second := baseScheduleTemplateInput(t)
 	second.DayOfWeek = 2 // different day, no conflict initially
-	secondCreated, err := svc.Create(context.Background(), second)
+	secondCreated, err := svc.Create(context.Background(), "admin-1", second)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestScheduleAdminService_Update_ConflictsWithOtherTemplate(t *testing.T) {
 	// Now try to move the second template onto the same day/time as the first.
 	conflictingUpdate := baseScheduleTemplateInput(t) // DayOfWeek 1, same time as first
 
-	_, err = svc.Update(context.Background(), secondCreated.ID, conflictingUpdate)
+	_, err = svc.Update(context.Background(), "admin-1", secondCreated.ID, conflictingUpdate)
 	if err != ErrScheduleConflict {
 		t.Fatalf("expected ErrScheduleConflict, got %v", err)
 	}
@@ -212,12 +212,12 @@ func TestScheduleAdminService_Delete(t *testing.T) {
 	repo := newFakeScheduleTemplateRepository()
 	svc := NewScheduleAdminService(repo)
 
-	created, err := svc.Create(context.Background(), baseScheduleTemplateInput(t))
+	created, err := svc.Create(context.Background(), "admin-1", baseScheduleTemplateInput(t))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if err := svc.Delete(context.Background(), created.ID); err != nil {
+	if err := svc.Delete(context.Background(), "admin-1", created.ID); err != nil {
 		t.Fatalf("unexpected error deleting template: %v", err)
 	}
 
@@ -234,7 +234,7 @@ func TestScheduleAdminService_Create_InvalidValidToBeforeValidFrom(t *testing.T)
 	invalidValidTo := mustParseDate(t, "2023-12-31") // before ValidFrom 2024-01-01
 	in.ValidTo = &invalidValidTo
 
-	_, err := svc.Create(context.Background(), in)
+	_, err := svc.Create(context.Background(), "admin-1", in)
 	if err != ErrInvalidDateRange {
 		t.Fatalf("expected ErrInvalidDateRange, got %v", err)
 	}

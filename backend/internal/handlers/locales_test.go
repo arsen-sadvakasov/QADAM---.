@@ -79,7 +79,7 @@ func TestChangeMyLanguage_Success(t *testing.T) {
 	h, users, roles := newLocalesTestHandler()
 
 	// создаём пользователя (admin-сервис резолвит роль по ключу)
-	_, err := services.NewUserAdminService(users, roles).Create(context.Background(), services.CreateUserInput{
+	_, err := services.NewUserAdminService(users, roles).Create(context.Background(), "", services.CreateUserInput{
 		Username: "student-1",
 		Password: "password123",
 		FullName: "Student One",
@@ -117,7 +117,7 @@ func TestChangeMyLanguage_Success(t *testing.T) {
 func TestChangeMyLanguage_InvalidLanguage(t *testing.T) {
 	h, users, roles := newLocalesTestHandler()
 
-	_, _ = services.NewUserAdminService(users, roles).Create(context.Background(), services.CreateUserInput{
+	_, _ = services.NewUserAdminService(users, roles).Create(context.Background(), "", services.CreateUserInput{
 		Username: "student-2",
 		Password: "password123",
 		FullName: "Student Two",
@@ -141,7 +141,7 @@ func TestChangeMyLanguage_InvalidLanguage(t *testing.T) {
 func TestMyLanguage_Success(t *testing.T) {
 	h, users, roles := newLocalesTestHandler()
 
-	_, _ = services.NewUserAdminService(users, roles).Create(context.Background(), services.CreateUserInput{
+	_, _ = services.NewUserAdminService(users, roles).Create(context.Background(), "", services.CreateUserInput{
 		Username: "student-3",
 		Password: "password123",
 		FullName: "Student Three",

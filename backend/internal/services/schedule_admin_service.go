@@ -41,8 +41,10 @@ type ScheduleTemplateInput struct {
 // ScheduleAdminService реализует бизнес-логику управления расписанием для
 // Admin Panel (Phase 5 спецификации): создание/редактирование/удаление
 // шаблонов занятий с проверкой конфликтов преподавателя/кабинета.
+// Phase 14: мутирующие операции журналируются в audit_logs (best-effort).
 type ScheduleAdminService struct {
 	templates repositories.ScheduleTemplateRepository
+	audit     *AuditService
 }
 
 // NewScheduleAdminService создаёт ScheduleAdminService с внедрённым репозиторием.
@@ -50,9 +52,14 @@ func NewScheduleAdminService(templates repositories.ScheduleTemplateRepository) 
 	return &ScheduleAdminService{templates: templates}
 }
 
+// SetAudit подключает журнал аудита (опционально; вызывается из main.go).
+func (s *ScheduleAdminService) SetAudit(a *AuditService) {
+	s.audit = a
+}
+
 // Create создаёt новый шаблон занятия, предварительно проверив отсутствие
 // конфликтов по преподавателю и кабинету.
-func (s *ScheduleAdminService) Create(ctx context.Context, in ScheduleTemplateInput) (*models.ScheduleTemplate, error) {
+func (s *ScheduleAdminService) Create(ctx context.Context, actorID string, in ScheduleTemplateInput) (*models.ScheduleTemplate, error) {
 	if err := validateScheduleTemplateInput(in); err != nil {
 		return nil, err
 	}
@@ -81,12 +88,18 @@ func (s *ScheduleAdminService) Create(ctx context.Context, in ScheduleTemplateIn
 		return nil, err
 	}
 	template.ID = id
+
+	// Audit: создание занятия (best-effort, раздел 29).
+	if s.audit != nil {
+		s.audit.Record(ctx, actorID, "create", "schedule", &id,
+			"создано занятие (группа "+in.GroupID+", "+in.StartTime.Format("15:04")+"-"+in.EndTime.Format("15:04")+")")
+	}
 	return template, nil
 }
 
 // Update редактирует существующий шаблон занятия, проверяя конфликты среди
 // прочих шаблонов (исключая сам редактируемый).
-func (s *ScheduleAdminService) Update(ctx context.Context, id string, in ScheduleTemplateInput) (*models.ScheduleTemplate, error) {
+func (s *ScheduleAdminService) Update(ctx context.Context, actorID, id string, in ScheduleTemplateInput) (*models.ScheduleTemplate, error) {
 	if err := validateScheduleTemplateInput(in); err != nil {
 		return nil, err
 	}
@@ -116,12 +129,25 @@ func (s *ScheduleAdminService) Update(ctx context.Context, id string, in Schedul
 	if err := s.templates.Update(ctx, existing); err != nil {
 		return nil, err
 	}
+
+	// Audit: редактирование занятия (best-effort, раздел 29).
+	if s.audit != nil {
+		s.audit.Record(ctx, actorID, "update", "schedule", &id,
+			"изменено занятие (группа "+in.GroupID+", "+in.StartTime.Format("15:04")+"-"+in.EndTime.Format("15:04")+")")
+	}
 	return existing, nil
 }
 
 // Delete удаляет (soft delete) шаблон занятия.
-func (s *ScheduleAdminService) Delete(ctx context.Context, id string) error {
-	return s.templates.SoftDelete(ctx, id)
+func (s *ScheduleAdminService) Delete(ctx context.Context, actorID, id string) error {
+	if err := s.templates.SoftDelete(ctx, id); err != nil {
+		return err
+	}
+	// Audit: удаление занятия (best-effort, раздел 29).
+	if s.audit != nil {
+		s.audit.Record(ctx, actorID, "delete", "schedule", &id, "занятие удалено")
+	}
+	return nil
 }
 
 // checkConflicts проверяет, не пересекается ли новое/редактируемое занятие

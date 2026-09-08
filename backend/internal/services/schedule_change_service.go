@@ -41,6 +41,7 @@ type ScheduleChangeService struct {
 	changes   repositories.ScheduleChangeRepository
 	templates repositories.ScheduleTemplateRepository
 	notifier  ScheduleChangeNotifier
+	audit     *AuditService
 }
 
 // ScheduleChangeNotifier — интерфейс отправки уведомлений о заменах.
@@ -96,8 +97,21 @@ func (s *ScheduleChangeService) Create(ctx context.Context, createdBy string, in
 	}
 	change.ID = id
 
+	// Audit: создание замены (best-effort, раздел 29). Описание — без
+	// чувствительных данных: тип замены + предмет + дата.
+	if s.audit != nil {
+		s.audit.Record(ctx, createdBy, "create", "schedule_change", &id,
+			"замена "+string(change.ChangeType)+": "+template.SubjectName+
+				" на "+change.ChangeDate.Format("2006-01-02"))
+	}
+
 	s.notifyScheduleChange(ctx, change, template)
 	return change, nil
+}
+
+// SetAudit подключает журнал аудита (опционально; вызывается из main.go).
+func (s *ScheduleChangeService) SetAudit(a *AuditService) {
+	s.audit = a
 }
 
 // notifyScheduleChange отправляет уведомление студентам группы о замене.

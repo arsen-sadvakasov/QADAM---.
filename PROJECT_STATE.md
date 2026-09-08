@@ -27,7 +27,8 @@ phase-9-curator-module              = 2faf7bd, закоммичено и зап�
 phase-11-search                      = cfe2a06, закоммичено и запушено
 phase-12-localization                = 1397274, закоммичено и запушено
 phase-13-mobile-pwa                  = код готов, ожидает коммита вместе с Phase 13.5
-phase-13-5-frontend-api (HEAD)     = код готов, ожидает коммита
+phase-13-5-frontend-api              = d83a78d, закоммичено и запушено
+phase-14-security-hardening (HEAD) = код готов, ожидает коммита
 ```
 
 ⚠️ **Важно:** ветки `dev` и `main` по-прежнему находятся на первом коммите. Согласно договорённости, слияние в `dev` происходит **после завершения всех этапов** — это нормальное состояние, не ошибка.
@@ -44,7 +45,9 @@ phase-13-5-frontend-api (HEAD)     = код готов, ожидает комм�
 
 **Статус Phase 12 (2026-09-08):** код закоммичен (`1397274`) и запушен в `origin/phase-12-localization`. Этап закрыт.
 
-**Статус Phase 13.5 (2026-09-08):** интеграция фронтенда с API реализована в рабочей копии ветки `phase-13-5-frontend-api`, сборка и линт зелёные (frontend build + lint, backend build + vet + test), ожидает коммита и push.
+**Статус Phase 13.5 (2026-09-08):** код закоммичен (`d83a78d`) и запушен в `origin/phase-13-5-frontend-api`. Этап закрыт.
+
+**Статус Phase 14 (2026-09-08):** код Phase 14 (Security Hardening) реализован в рабочей копии ветки `phase-14-security-hardening`, все проверки пройдены (`go build`, `go vet`, `go test ./...` — зелёные), ожидает коммита и push.
 
 **Статус Phase 13 (2026-09-08):** код Phase 13 (Mobile Polish / PWA) реализован, сборка (`npm run build`) и линт зелёные, ожидает коммита и push.
 
@@ -67,25 +70,23 @@ phase-13-5-frontend-api (HEAD)     = код готов, ожидает комм�
 | 11 | Search | ✅ закоммичен, запушен (`phase-11-search`, `cfe2a06`) | ✅ реализован |
 | 12 | Localization | ✅ закоммичен, запушен (`phase-12-localization`, `1397274`) | ✅ реализован |
 | 13 | Mobile Polish / PWA | 🟡 код готов, не закоммичен (`phase-13-mobile-pwa`) | ✅ реализован (базовый каркас UI) |
-| 13.5 | Frontend API Integration | 🟡 код готов, не закоммичен (`phase-13-5-frontend-api`) | ✅ реализован (логин, расписание, уведомления) |
-| 14 | Security Hardening | ⬜ не начат | ⬜ нет кода |
+| 13.5 | Frontend API Integration | ✅ закоммичен, запушен (`phase-13-5-frontend-api`, `d83a78d`) | ✅ реализован |
+| 14 | Security Hardening | 🟡 код готов, не закоммичен (`phase-14-security-hardening`) | ✅ реализован |
 | 15 | Testing (полное покрытие) | ⬜ не начат как отдельный этап (частичное покрытие тестами уже есть внутри Phase 2 и 4, см. ниже) | 🟡 частично, только auth + schedule |
 | 16 | Deployment | ⬜ не начат | ⬜ нет кода |
 
-**Текущий этап: Phase 13.5 — Frontend API Integration**, статус 🟡 **код реализован**, все проверки зелёные, ждёт коммита и push.
+**Текущий этап: Phase 14 — Security Hardening**, статус 🟡 **код реализован и протестирован локально** (build + vet + все unit-тесты зелёные), ждёт коммита и push.
 
-Реализовано в Phase 13.5 (внеочередный этап по решению пользователя — связать фронтенд с API):
-- `src/api/client.ts`: fetch-клиент с JWT access-токеном в памяти (не localStorage — XSS-безопасность, раздел 28), авто-refresh при 401 через httpOnly-cookie (одна параллельная попытка на все запросы), единая обработка ошибок (ApiError).
-- `src/api/auth.ts`, `src/api/schedule.ts`: логин/выход/me, расписание, уведомления (список + mark-read), группы.
-- `src/hooks`: AuthProvider/useAuth (восстановление сессии при загрузке через refresh-cookie), useSchedule (react-query, кэш 60с), useNotifications (unread_count для бейджа).
-- `LoginPage`: форма входа с ошибками (401 — неверные данные, 429 — rate limit).
-- `ProtectedRoute`: все основные маршруты защищены; пока сессия проверяется — загрузка.
-- `SchedulePage`: выбор группы → расписание на неделю (пн–вс), группировка по датам, сортировка по времени; замены уже применены backend'ом.
-- `NotificationsPage`: список с приоритетами, отметка «прочитано», бейдж непрочитанных в навигации (десктоп и мобильная таб-панель).
-- `ProfilePage`: данные пользователя (роль, язык, тема) + выход.
-- Backend: `middleware.CORS` (strict whitelist, credentials; в dev — localhost:5173); Vite dev-proxy `/api` → `:8080` (same-origin ⇒ SameSite=strict refresh-cookie работает без CORS).
-- Проверки: frontend `npm run build` + `npm run lint` (0 warnings/errors); backend `go vet` + `go build` + `go test ./...` — зелёные.
-- Для живого просмотра: поднять БД (`docker compose up postgres minio`), запустить backend и `cd frontend && npm run dev`; пользователи создаются через `POST /api/v1/users` (Admin) — см. PROJECT_STATE проблему №4 про первый запуск миграций.
+Аудит соответствия разделу 28 (было → стало):
+- Security-заголовки: отсутствовали → `middleware.SecurityHeaders` (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, CSP; HSTS — только в production).
+- Input validation (username/пароль): отсутствовала → server-side валидация в `UserAdminService.Create` (username 3–50 символов, regexp; пароль минимум 8 символов; ошибки → 400).
+- Аудит действий администратора (раздел 29): таблица существовала только в спецификации → миграция `000008_audit_logs` + репозиторий/сервис/хендлер; записи создаются best-effort при мутациях (users create/update/block, schedule create/update/delete, schedule_change create) с описанием "было → стало" без чувствительных данных.
+- `GET /api/v1/admin/audit-logs` (Admin only) с фильтрами actor_id/entity_type/entity_id/limit.
+
+Уже было реализовано ранее и проверено на соответствие:
+- JWT + RBAC (Phase 2/5); bcrypt-хэширование (Phase 2); rate limiting на /auth/login (10/мин) и 429-обработка на фронтенде; CORS strict whitelist (Phase 13.5, dev-only); refresh-cookie HttpOnly+Secure+SameSite=strict; SQL injection — все запросы параметризованы (конкатенация только $N-плейсхолдеров, проверено grep по всем репозиториям); XSS — React-экранирование, токен не в localStorage; загрузка файлов — whitelist расширений + лимит 50 МБ (Phase 7); логирование без чувствительных данных (Logging пишет только метод/путь).
+
+Тесты: валидация username/пароля (handlers), аудит-описание в сервисах замен; существующие тесты обновлены под actorID-сигнатуры.
 
 ---
 
@@ -183,11 +184,10 @@ go test ./... -v     → 23 теста, все PASS (0 FAIL)
 
 ## 6. Точный следующий шаг
 
-1. Закоммитить и запушить Phase 13 + 13.5 в `phase-13-5-frontend-api` (по команде пользователя).
-2. Первый живой запуск: Docker (postgres+minio) → миграции → создать первого admin'а через API → войти во фронтенд.
-3. Приступить к Phase 14 (Security Hardening): строгий CORS-whitelist (базис уже есть), security-заголовки, аудит логов.
-4. Подключить MinIO-реализацию `FileStorage` (нужен доступ к сети для `go get github.com/minio/minio-go/v7`).
-5. Профиль: подключить смену языка (`PATCH /users/me/language`) и темы к UI настроек.
+1. Закоммитить и запушить Phase 14 в `phase-14-security-hardening` (по команде пользователя).
+2. Подключить MinIO-реализацию `FileStorage` (нужен доступ к сети для `go get github.com/minio/minio-go/v7`).
+3. Приступить к Phase 15 (Testing): полное покрытие критичных модулей unit/integration тестами.
+4. Первый живой запуск: Docker (postgres+minio) → миграции `000001`–`000008` → создать первого admin'а (`go run ./cmd/create-admin`) → войти во фронтенд.
 
 **Изменение плана (2026-09-08):** Phase 10 (Session — экзамены/сессия) исключена из роадмапа по решению пользователя — функционал пока не нужен сайту. Таблица `exams` из миграций не создавалась, кода нет, поэтому исключение не требует отката. При необходимости этап можно вернуть позже.
 

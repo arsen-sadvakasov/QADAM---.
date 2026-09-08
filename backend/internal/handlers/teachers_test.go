@@ -127,6 +127,7 @@ func TestTeachersCreate_Success(t *testing.T) {
 		"full_name": "New Teacher",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/teachers", bytes.NewReader(body))
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), "admin-1", models.RoleAdmin))
 	rec := httptest.NewRecorder()
 
 	h.Create(rec, req)

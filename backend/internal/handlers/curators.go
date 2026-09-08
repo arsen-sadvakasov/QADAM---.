@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/qadam/backend/internal/middleware"
 	"github.com/qadam/backend/internal/models"
 	"github.com/qadam/backend/internal/repositories"
 	"github.com/qadam/backend/internal/services"
@@ -47,6 +48,12 @@ type createCuratorRequest struct {
 
 // Create обрабатывает POST /api/v1/curators. Admin only.
 func (h *CuratorsHandler) Create(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
 	var req createCuratorRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -57,7 +64,7 @@ func (h *CuratorsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userAdmin.Create(r.Context(), services.CreateUserInput{
+	user, err := h.userAdmin.Create(r.Context(), actorID, services.CreateUserInput{
 		Username: req.Username,
 		Password: req.Password,
 		FullName: req.FullName,
@@ -81,6 +88,11 @@ type updateCuratorRequest struct {
 
 // Update обрабатывает PATCH /api/v1/curators/{id}. Admin only.
 func (h *CuratorsHandler) Update(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	id := r.PathValue("id")
 
 	var req updateCuratorRequest
@@ -89,7 +101,7 @@ func (h *CuratorsHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userAdmin.Update(r.Context(), id, services.UpdateUserInput{
+	user, err := h.userAdmin.Update(r.Context(), actorID, id, services.UpdateUserInput{
 		FullName: req.FullName,
 		Email:    req.Email,
 		Phone:    req.Phone,

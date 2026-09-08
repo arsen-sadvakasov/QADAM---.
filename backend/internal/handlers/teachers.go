@@ -82,6 +82,12 @@ type createTeacherRequest struct {
 
 // Create обрабатывает POST /api/v1/teachers. Admin only.
 func (h *TeachersHandler) Create(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
 	var req createTeacherRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -92,7 +98,7 @@ func (h *TeachersHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	teacher, err := h.teachers.Create(r.Context(), services.CreateTeacherInput{
+	teacher, err := h.teachers.Create(r.Context(), actorID, services.CreateTeacherInput{
 		Username: req.Username,
 		Password: req.Password,
 		FullName: req.FullName,

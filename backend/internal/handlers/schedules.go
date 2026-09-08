@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/qadam/backend/internal/middleware"
 	"github.com/qadam/backend/internal/models"
 	"github.com/qadam/backend/internal/repositories"
 	"github.com/qadam/backend/internal/services"
@@ -305,6 +306,12 @@ func (req scheduleTemplateWriteRequest) toInput() (services.ScheduleTemplateInpu
 // CreateTemplate обрабатывает POST /api/v1/schedules — создание шаблона
 // занятия. Admin only.
 func (h *SchedulesHandler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
 	var req scheduleTemplateWriteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -321,7 +328,7 @@ func (h *SchedulesHandler) CreateTemplate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	template, err := h.admin.Create(r.Context(), input)
+	template, err := h.admin.Create(r.Context(), actorID, input)
 	if err != nil {
 		handleScheduleAdminError(w, err)
 		return
@@ -332,6 +339,11 @@ func (h *SchedulesHandler) CreateTemplate(w http.ResponseWriter, r *http.Request
 // UpdateTemplate обрабатывает PATCH /api/v1/schedules/{id} — редактирование
 // шаблона. Admin only.
 func (h *SchedulesHandler) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	id := r.PathValue("id")
 
 	var req scheduleTemplateWriteRequest
@@ -346,7 +358,7 @@ func (h *SchedulesHandler) UpdateTemplate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	template, err := h.admin.Update(r.Context(), id, input)
+	template, err := h.admin.Update(r.Context(), actorID, id, input)
 	if err != nil {
 		handleScheduleAdminError(w, err)
 		return
@@ -357,8 +369,13 @@ func (h *SchedulesHandler) UpdateTemplate(w http.ResponseWriter, r *http.Request
 // DeleteTemplate обрабатывает DELETE /api/v1/schedules/{id} — удаление
 // шаблона. Admin only.
 func (h *SchedulesHandler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	id := r.PathValue("id")
-	if err := h.admin.Delete(r.Context(), id); err != nil {
+	if err := h.admin.Delete(r.Context(), actorID, id); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}

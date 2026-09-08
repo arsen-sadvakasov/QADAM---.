@@ -45,8 +45,8 @@ func (s *TeacherAdminService) Get(ctx context.Context, id string) (*models.Teach
 
 // Create создаёт учётную запись пользователя с ролью teacher и связанную
 // запись в teachers.
-func (s *TeacherAdminService) Create(ctx context.Context, in CreateTeacherInput) (*models.Teacher, error) {
-	user, err := s.users.Create(ctx, CreateUserInput{
+func (s *TeacherAdminService) Create(ctx context.Context, actorID string, in CreateTeacherInput) (*models.Teacher, error) {
+	user, err := s.users.Create(ctx, actorID, CreateUserInput{
 		Username: in.Username,
 		Password: in.Password,
 		FullName: in.FullName,
