@@ -3,7 +3,10 @@
  * (refresh-токен живёт в httpOnly cookie, ставится backend'ом).
  */
 
-const API_BASE = '/api/v1'
+// Production: VITE_API_BASE_URL = полный URL backend (например,
+// https://qadam-backend.onrender.com). Development: переменная не задана —
+// используем тот же origin, запросы идут через Vite dev-proxy на :8080.
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '') + '/api/v1'
 
 export class ApiError extends Error {
   status: number

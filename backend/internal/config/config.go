@@ -27,6 +27,10 @@ type Config struct {
 	// (реализация FileStorage для разработки; в продакшене — MinIO/S3).
 	MaterialsDir string
 
+	// AllowedOrigins — запятая-разделённый список origin'ов фронтенда для
+	// CORS в production (Phase 16; раздел 28 спецификации — строгий whitelist).
+	AllowedOrigins string
+
 	RedisURL string
 }
 
@@ -50,6 +54,8 @@ func Load() Config {
 		MinioUseSSL:    getEnvBool("MINIO_USE_SSL", false),
 
 		MaterialsDir: getEnv("MATERIALS_DIR", "/tmp/qadam-materials"),
+
+		AllowedOrigins: getEnv("ALLOWED_ORIGINS", ""),
 
 		RedisURL: getEnv("REDIS_URL", "redis://localhost:6379/0"),
 	}

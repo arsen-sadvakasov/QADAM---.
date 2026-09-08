@@ -5,6 +5,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/qadam/backend/internal/config"
@@ -97,7 +98,7 @@ func main() {
 	materialRepo := repositories.NewMaterialRepository(pool)
 	materialService := services.NewMaterialService(materialRepo, fileStorage, notificationService)
 
-	authHandler := handlers.NewAuthHandler(authService)
+	authHandler := handlers.NewAuthHandler(authService, cfg.AppEnv == "production")
 	usersHandler := handlers.NewUsersHandler(userRepo, userAdminService)
 	schedulesHandler := handlers.NewSchedulesHandler(scheduleService, scheduleAdminService)
 	groupsHandler := handlers.NewGroupsHandler(groupRepo)
@@ -235,10 +236,20 @@ func main() {
 	// Phase 14 — Security Hardening: защитные заголовки; HSTS только в
 	// production (HTTPS). В dev HTTP без TLS, HSTS не добавляется.
 	h = middleware.SecurityHeaders(cfg.AppEnv == "production")(h)
-	// CORS для development: Vite (:5173) ходит на API (:8080) с credentials.
-	// В production фронтенд отдаётся nginx'ом с того же origin — CORS не нужен.
-	if cfg.AppEnv == "development" {
+	// CORS (раздел 28 — строгий whitelist):
+	//  - development: Vite (:5173) ходит на API (:8080) с credentials;
+	//  - production: origin'ы фронтенда из ALLOWED_ORIGINS (через запятую).
+	switch cfg.AppEnv {
+	case "development":
 		h = middleware.CORS("http://localhost:5173", "http://127.0.0.1:5173")(h)
+	case "production":
+		if cfg.AllowedOrigins != "" {
+			origins := strings.Split(cfg.AllowedOrigins, ",")
+			for i := range origins {
+				origins[i] = strings.TrimSpace(origins[i])
+			}
+			h = middleware.CORS(origins...)(h)
+		}
 	}
 
 	addr := ":" + cfg.Port

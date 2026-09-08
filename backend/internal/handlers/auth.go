@@ -15,12 +15,15 @@ const refreshCookieName = "qadam_refresh_token"
 
 // AuthHandler содержит HTTP-хендлеры для /api/v1/auth/*.
 type AuthHandler struct {
-	auth *services.AuthService
+	auth       *services.AuthService
+	secureCookie bool
 }
 
 // NewAuthHandler создаёт AuthHandler с внедрённым AuthService.
-func NewAuthHandler(auth *services.AuthService) *AuthHandler {
-	return &AuthHandler{auth: auth}
+// secureCookie=true в production (HTTPS): cookie с Secure-флагом;
+// в development (HTTP) Secure выключается, иначе браузер её не сохранит.
+func NewAuthHandler(auth *services.AuthService, secureCookie bool) *AuthHandler {
+	return &AuthHandler{auth: auth, secureCookie: secureCookie}
 }
 
 type loginRequest struct {
@@ -68,7 +71,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setRefreshCookie(w, result.RefreshToken)
+	setRefreshCookie(w, h, result.RefreshToken)
 	writeLoginResponse(w, result)
 }
 
@@ -82,12 +85,12 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.auth.Refresh(r.Context(), cookie.Value)
 	if err != nil {
-		clearRefreshCookie(w)
+		clearRefreshCookie(w, h)
 		writeError(w, http.StatusUnauthorized, "invalid or expired refresh token")
 		return
 	}
 
-	setRefreshCookie(w, result.RefreshToken)
+	setRefreshCookie(w, h, result.RefreshToken)
 	writeLoginResponse(w, result)
 }
 
@@ -96,7 +99,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(refreshCookieName); err == nil && cookie.Value != "" {
 		_ = h.auth.Logout(r.Context(), cookie.Value)
 	}
-	clearRefreshCookie(w)
+	clearRefreshCookie(w, h)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -118,25 +121,25 @@ func writeLoginResponse(w http.ResponseWriter, result *services.AuthResult) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-func setRefreshCookie(w http.ResponseWriter, token string) {
+func setRefreshCookie(w http.ResponseWriter, h *AuthHandler, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     refreshCookieName,
 		Value:    token,
 		Path:     "/api/v1/auth",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   h.secureCookie,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   int(services.RefreshTokenTTL.Seconds()),
 	})
 }
 
-func clearRefreshCookie(w http.ResponseWriter) {
+func clearRefreshCookie(w http.ResponseWriter, h *AuthHandler) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     refreshCookieName,
 		Value:    "",
 		Path:     "/api/v1/auth",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   h.secureCookie,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	})
