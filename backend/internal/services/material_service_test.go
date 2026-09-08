@@ -320,6 +320,35 @@ func TestMaterialService_DeleteFile_RemovesFromStorage(t *testing.T) {
 	}
 }
 
+func TestMaterialService_Get_WithFiles(t *testing.T) {
+	svc, repo := newMaterialTestService(t)
+	ctx := context.Background()
+
+	m, _ := svc.Create(ctx, "teacher-1", MaterialInput{SubjectID: "s1", Title: "M"})
+	_, err := svc.UploadFile(ctx, "teacher-1", false, m.ID, "doc.pdf", 3, strings.NewReader("abc"))
+	if err != nil {
+		t.Fatalf("upload failed: %v", err)
+	}
+
+	got, files, err := svc.Get(ctx, m.ID)
+	if err != nil {
+		t.Fatalf("get failed: %v", err)
+	}
+	if got.ID != m.ID {
+		t.Errorf("expected material %q, got %q", m.ID, got.ID)
+	}
+	if len(files) != 1 {
+		t.Errorf("expected 1 file, got %d", len(files))
+	}
+
+	// Несуществующий материал — 404
+	_, _, err = svc.Get(ctx, "missing")
+	if !errors.Is(err, repositories.ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+	_ = repo
+}
+
 func TestMaterialService_ListBySubject_RequiresSubjectID(t *testing.T) {
 	svc, _ := newMaterialTestService(t)
 	_, err := svc.ListBySubject(context.Background(), "")

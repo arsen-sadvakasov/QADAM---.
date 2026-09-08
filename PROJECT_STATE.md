@@ -28,7 +28,8 @@ phase-11-search                      = cfe2a06, закоммичено и зап
 phase-12-localization                = 1397274, закоммичено и запушено
 phase-13-mobile-pwa                  = код готов, ожидает коммита вместе с Phase 13.5
 phase-13-5-frontend-api              = d83a78d, закоммичено и запушено
-phase-14-security-hardening (HEAD) = код готов, ожидает коммита
+phase-14-security-hardening          = fd31462, закоммичено и запушено
+phase-15-testing (HEAD)             = код готов, ожидает коммита
 ```
 
 ⚠️ **Важно:** ветки `dev` и `main` по-прежнему находятся на первом коммите. Согласно договорённости, слияние в `dev` происходит **после завершения всех этапов** — это нормальное состояние, не ошибка.
@@ -47,7 +48,9 @@ phase-14-security-hardening (HEAD) = код готов, ожидает комм�
 
 **Статус Phase 13.5 (2026-09-08):** код закоммичен (`d83a78d`) и запушен в `origin/phase-13-5-frontend-api`. Этап закрыт.
 
-**Статус Phase 14 (2026-09-08):** код Phase 14 (Security Hardening) реализован в рабочей копии ветки `phase-14-security-hardening`, все проверки пройдены (`go build`, `go vet`, `go test ./...` — зелёные), ожидает коммита и push.
+**Статус Phase 14 (2026-09-08):** код закоммичен (`fd31462`) и запушен в `origin/phase-14-security-hardening`. Этап закрыт.
+
+**Статус Phase 15 (2026-09-08):** код Phase 15 (Testing) реализован в рабочей копии ветки `phase-15-testing`, все проверки пройдены (`go build`, `go vet`, `go test ./...` — зелёные), ожидает коммита и push.
 
 **Статус Phase 13 (2026-09-08):** код Phase 13 (Mobile Polish / PWA) реализован, сборка (`npm run build`) и линт зелёные, ожидает коммита и push.
 
@@ -71,22 +74,25 @@ phase-14-security-hardening (HEAD) = код готов, ожидает комм�
 | 12 | Localization | ✅ закоммичен, запушен (`phase-12-localization`, `1397274`) | ✅ реализован |
 | 13 | Mobile Polish / PWA | 🟡 код готов, не закоммичен (`phase-13-mobile-pwa`) | ✅ реализован (базовый каркас UI) |
 | 13.5 | Frontend API Integration | ✅ закоммичен, запушен (`phase-13-5-frontend-api`, `d83a78d`) | ✅ реализован |
-| 14 | Security Hardening | 🟡 код готов, не закоммичен (`phase-14-security-hardening`) | ✅ реализован |
-| 15 | Testing (полное покрытие) | ⬜ не начат как отдельный этап (частичное покрытие тестами уже есть внутри Phase 2 и 4, см. ниже) | 🟡 частично, только auth + schedule |
+| 14 | Security Hardening | ✅ закоммичен, запушен (`phase-14-security-hardening`, `fd31462`) | ✅ реализован |
+| 15 | Testing | 🟡 код готов, не закоммичен (`phase-15-testing`) | ✅ реализован (покрытие критичных модулей) |
 | 16 | Deployment | ⬜ не начат | ⬜ нет кода |
 
-**Текущий этап: Phase 14 — Security Hardening**, статус 🟡 **код реализован и протестирован локально** (build + vet + все unit-тесты зелёные), ждёт коммита и push.
+**Текущий этап: Phase 15 — Testing**, статус 🟡 **код реализован и протестирован локально**, ждёт коммита и push.
 
-Аудит соответствия разделу 28 (было → стало):
-- Security-заголовки: отсутствовали → `middleware.SecurityHeaders` (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, CSP; HSTS — только в production).
-- Input validation (username/пароль): отсутствовала → server-side валидация в `UserAdminService.Create` (username 3–50 символов, regexp; пароль минимум 8 символов; ошибки → 400).
-- Аудит действий администратора (раздел 29): таблица существовала только в спецификации → миграция `000008_audit_logs` + репозиторий/сервис/хендлер; записи создаются best-effort при мутациях (users create/update/block, schedule create/update/delete, schedule_change create) с описанием "было → стало" без чувствительных данных.
-- `GET /api/v1/admin/audit-logs` (Admin only) с фильтрами actor_id/entity_type/entity_id/limit.
+Покрытие тестами до Phase 15 → после:
+| Пакет | До | После |
+|---|---|---|
+| middleware | 0% | **94.9%** |
+| services | 71.1% | **83.6%** |
+| handlers | 51.6% | 51.6% (уже был покрыт CRUD/ошибками всех хендлеров) |
+| locales | 90.7% | 90.7% |
+| storage | 82.8% | 82.8% |
+| repositories | 0.3% | 0.3% (SQL-слой; тестируется интеграционно — см. следующий шаг) |
 
-Уже было реализовано ранее и проверено на соответствие:
-- JWT + RBAC (Phase 2/5); bcrypt-хэширование (Phase 2); rate limiting на /auth/login (10/мин) и 429-обработка на фронтенде; CORS strict whitelist (Phase 13.5, dev-only); refresh-cookie HttpOnly+Secure+SameSite=strict; SQL injection — все запросы параметризованы (конкатенация только $N-плейсхолдеров, проверено grep по всем репозиториям); XSS — React-экранирование, токен не в localStorage; загрузка файлов — whitelist расширений + лимит 50 МБ (Phase 7); логирование без чувствительных данных (Logging пишет только метод/путь).
-
-Тесты: валидация username/пароля (handlers), аудит-описание в сервисах замен; существующие тесты обновлены под actorID-сигнатуры.
+Новое в Phase 15:
+- middleware (0% → 94.9%): Auth (missing/malformed/invalid/valid токен + контекст), RequireRole (allowed/forbidden/без пользователя), SecurityHeaders (заголовки присутствуют/HSTS выключен в dev), CORS (allowed origin echo, блокировка чужих origin, preflight short-circuit), RateLimiter (блок после лимита, независимые IP, сброс окна).
+- services (+12.5%): UserAdminService (создание с defaults ru/dark/active, bcrypt-хэш не равен паролю, валидация username/password/language/role, дубликат username, update/block/list-фильтры), TokenService (generate+parse round-trip, мусор/пустой/чужой секрет отклоняются, refresh-токен уникален и HashToken детерминирован), HashPassword (bcrypt-формат, уникальные соли), AuditService (record + list-фильтры), TeacherAdminService (create через оркестрацию users+teachers, проброс валидации, assign/unassign, list/get/404), MaterialService.Get (материал с файлами + 404), ScheduleChangeService.Get (404).
 
 ---
 
@@ -184,10 +190,11 @@ go test ./... -v     → 23 теста, все PASS (0 FAIL)
 
 ## 6. Точный следующий шаг
 
-1. Закоммитить и запушить Phase 14 в `phase-14-security-hardening` (по команде пользователя).
-2. Подключить MinIO-реализацию `FileStorage` (нужен доступ к сети для `go get github.com/minio/minio-go/v7`).
-3. Приступить к Phase 15 (Testing): полное покрытие критичных модулей unit/integration тестами.
-4. Первый живой запуск: Docker (postgres+minio) → миграции `000001`–`000008` → создать первого admin'а (`go run ./cmd/create-admin`) → войти во фронтенд.
+1. Закоммитить и запушить Phase 15 в `phase-15-testing` (по команде пользователя).
+2. Приступить к Phase 16 (Deployment): финальная сборка Docker-образов, prod-конфигурация (HTTPS/HSTS, секреты через env), CI-прогон тестов.
+3. Интеграционные тесты repositories требуют живой PostgreSQL (docker compose) — вынести в отдельный прогон с тегом `integration`.
+4. Подключить MinIO-реализацию `FileStorage` (нужен доступ к сети для `go get github.com/minio/minio-go/v7`).
+5. Первый живой запуск: Docker (postgres+minio) → миграции `000001`–`000008` → `go run ./cmd/create-admin` → вход во фронтенд.
 
 **Изменение плана (2026-09-08):** Phase 10 (Session — экзамены/сессия) исключена из роадмапа по решению пользователя — функционал пока не нужен сайту. Таблица `exams` из миграций не создавалась, кода нет, поэтому исключение не требует отката. При необходимости этап можно вернуть позже.
 

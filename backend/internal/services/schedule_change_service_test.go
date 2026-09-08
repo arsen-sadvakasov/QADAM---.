@@ -242,6 +242,14 @@ func TestScheduleChangeService_Create_ValidTypesPass(t *testing.T) {
 	}
 }
 
+func TestScheduleChangeService_Get_NotFound(t *testing.T) {
+	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), newFakeScheduleTemplateRepository(), nil)
+
+	if _, err := svc.Get(context.Background(), "missing"); !errors.Is(err, repositories.ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
 func TestScheduleChangeService_List_BothFiltersRejected(t *testing.T) {
 	svc := NewScheduleChangeService(newFakeScheduleChangeRepository(), newFakeScheduleTemplateRepository(), nil)
 

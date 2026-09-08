@@ -70,4 +70,5 @@ npm run dev
 | Phase 13 — Mobile Polish / PWA | ✅ Готово |
 | Phase 13.5 — Frontend API Integration | ✅ Готово |
 | Phase 14 — Security Hardening | ✅ Готово |
-| Phase 15–16 | Ожидают |
+| Phase 15 — Testing | ✅ Готово |
+| Phase 16 — Deployment | Ожидают |
