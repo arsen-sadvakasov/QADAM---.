@@ -40,11 +40,11 @@ const scheduleChangeColumns = `
 `
 
 const scheduleChangeWithNamesColumns = scheduleChangeColumns + `,
-	t1.first_name || ' ' || t1.last_name,
+	u1.full_name,
 	r1.number,
 	st.start_time, st.end_time,
 	sub.name, g.name,
-	t2.first_name || ' ' || t2.last_name,
+	u2.full_name,
 	r2.number
 `
 
