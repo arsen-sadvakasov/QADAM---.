@@ -1,8 +1,11 @@
 import { api } from './client'
 import type { GroupsResponse, Lesson, NotificationsResponse } from '../types/api'
 
+export type { Lesson }
+
 /**
- * API расписания, уведомлений и групп (Phase 4/6/8 backend).
+ * API расписания, уведомлений, групп, предметов и материалов
+ * (Phase 4/6/8/7 backend).
  */
 
 export interface ScheduleFilters {
@@ -34,4 +37,51 @@ export async function markNotificationRead(id: string): Promise<void> {
 
 export async function fetchGroups(): Promise<GroupsResponse> {
   return api<GroupsResponse>('/groups')
+}
+
+// --- Subjects (Phase 5) ---
+
+export interface Subject {
+  id: string
+  name: string
+  code?: string | null
+}
+
+export async function fetchSubjects(): Promise<Subject[]> {
+  const data = await api<{ subjects: Subject[] }>('/subjects')
+  return data.subjects
+}
+
+// --- Materials (Phase 7) ---
+
+export interface Material {
+  id: string
+  subject_id: string
+  subject_name: string
+  category: 'lecture' | 'practice' | 'lab' | 'extra'
+  title: string
+  description?: string | null
+  author_name: string
+  created_at: string
+}
+
+export async function fetchMaterialsBySubject(subjectId: string): Promise<Material[]> {
+  const data = await api<{ materials: Material[] }>(`/materials?subject_id=${subjectId}`)
+  return data.materials
+}
+
+// --- Students (Phase 9; доступ: curator своей группы, admin) ---
+
+export interface Student {
+  id: string
+  user_id?: string | null
+  group_id: string
+  status: string
+  full_name?: string | null
+  email?: string | null
+}
+
+export async function fetchStudentsByGroup(groupId: string): Promise<Student[]> {
+  const data = await api<{ students: Student[] }>(`/students?group_id=${groupId}`)
+  return data.students
 }

@@ -63,3 +63,12 @@ export interface Group {
 export interface GroupsResponse {
   groups: Group[]
 }
+
+export interface Student {
+  id: string
+  user_id?: string | null
+  group_id: string
+  status: string
+  full_name?: string | null
+  email?: string | null
+}
